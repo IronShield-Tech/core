@@ -1,5 +1,7 @@
 use sha2::{Sha256, Digest};
 use hex;
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 
 /// Core functionality for the IronShield proof-of-work system
 /// This module contains shared code that can be used in both
@@ -29,6 +31,42 @@ pub fn find_solution(challenge: &str, difficulty: usize) -> Result<(u64, String)
     }
     
     Err("Could not find solution within attempt limit".into())
+}
+
+/// Find a solution for the given challenge and difficulty level using parallel processing
+#[cfg(feature = "parallel")]
+pub fn find_solution_parallel(challenge: &str, difficulty: usize, num_threads: usize) -> Result<(u64, String), String> {
+    let target_prefix = "0".repeat(difficulty);
+    let max_attempts = 10000000;
+    let chunk_size = 10000;
+    
+    // Create a range of nonces to check, divided into chunks
+    let result = (0..max_attempts)
+        .step_by(num_threads)
+        .collect::<Vec<u64>>()
+        .par_chunks(chunk_size)
+        .map(|chunk| {
+            // Process each chunk in parallel
+            for &start_nonce in chunk {
+                // Each thread checks a different set of nonces based on its offset
+                for thread_offset in 0..num_threads {
+                    let nonce = start_nonce + thread_offset as u64;
+                    let hash = calculate_hash(challenge, nonce);
+                    
+                    if hash.starts_with(&target_prefix) {
+                        return Some((nonce, hash));
+                    }
+                }
+            }
+            None
+        })
+        .find_any(|result| result.is_some())
+        .flatten();
+    
+    match result {
+        Some((nonce, hash)) => Ok((nonce, hash)),
+        None => Err("Could not find solution within attempt limit".into())
+    }
 }
 
 /// Calculate the hash for a given challenge and nonce
