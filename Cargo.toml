@@ -1,0 +1,17 @@
+[package]
+name = "ironshield-core"
+version = "0.1.0"
+edition = "2021"
+authors = [ "ebosspc <software2070@protonmail.com>" ]
+description = "Core functionality for the IronShield PoW system"
+
+[dependencies]
+sha2 = "0.10"
+hex = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+rand = "0.8"
+
+[lib]
+name = "ironshield_core"
+path = "src/lib.rs" 
