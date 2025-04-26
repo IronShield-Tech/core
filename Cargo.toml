@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 authors = [ "ebosspc <software2070@protonmail.com>" ]
 description = "Core library for the IronShield PoW system"
+repository = "" # TODO: Add GitHub repository URL
+license = "BUSL-1.1" # Becomes Apache-2.0 after 2028-07-24
 
 [dependencies]
 sha2 = "0.10"
