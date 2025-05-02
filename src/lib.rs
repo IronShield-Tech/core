@@ -9,15 +9,15 @@ use rayon::prelude::*;
 
 /// Find a solution for the given challenge and difficulty level
 pub fn find_solution(challenge: &str, difficulty: usize) -> Result<(u64, String), String> {
-    let target_prefix = "0".repeat(difficulty);
-    let max_attempts = 10000000;
+    let target_prefix: String = "0".repeat(difficulty);
+    let max_attempts: u64 = 10000000;
     
     for nonce in 0..max_attempts {
-        let data_to_hash = format!("{}:{}", challenge, nonce);
+        let data_to_hash: String = format!("{}:{}", challenge, nonce);
         let mut hasher = Sha256::new();
         hasher.update(data_to_hash.as_bytes());
         let hash_bytes = hasher.finalize();
-        let hash = hex::encode(hash_bytes);
+        let hash: String = hex::encode(hash_bytes);
         
         if hash.starts_with(&target_prefix) {
             return Ok((nonce, hash));
@@ -71,7 +71,7 @@ pub fn find_solution_parallel(challenge: &str, difficulty: usize, num_threads: u
 
 /// Calculate the hash for a given challenge and nonce
 pub fn calculate_hash(challenge: &str, nonce: u64) -> String {
-    let data_to_hash = format!("{}:{}", challenge, nonce);
+    let data_to_hash: String = format!("{}:{}", challenge, nonce);
     let mut hasher = Sha256::new();
     hasher.update(data_to_hash.as_bytes());
     let hash_bytes = hasher.finalize();
@@ -82,7 +82,7 @@ pub fn calculate_hash(challenge: &str, nonce: u64) -> String {
 pub fn verify_solution(challenge: &str, nonce_str: &str, difficulty: usize) -> bool {
     match nonce_str.parse::<u64>() {
         Ok(nonce) => {
-            let target_prefix = "0".repeat(difficulty);
+            let target_prefix: String = "0".repeat(difficulty);
             let hash = calculate_hash(challenge, nonce);
             hash.starts_with(&target_prefix)
         },
@@ -96,16 +96,16 @@ mod tests {
 
     #[test]
     fn test_hash_calculation() {
-        let challenge = "test_challenge";
-        let nonce = 12345;
-        let hash = calculate_hash(challenge, nonce);
+        let challenge: &str = "test_challenge";
+        let nonce: u64 = 12345;
+        let hash: String = calculate_hash(challenge, nonce);
         assert!(!hash.is_empty());
     }
 
     #[test]
     fn test_verification() {
-        let challenge = "test_challenge";
-        let difficulty = 1; // Use low difficulty for quick test
+        let challenge: &str = "test_challenge";
+        let difficulty: usize = 1; // Use low difficulty for quick test
         
         // Find a valid solution
         let (nonce, _) = find_solution(challenge, difficulty).unwrap();
