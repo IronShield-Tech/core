@@ -8,11 +8,33 @@ use hex;
 use rayon::prelude::*;
 use sha2::{Digest, Sha256};
 
+/// Maximum number of nonce values to try before giving up.
 const MAX_ATTEMPTS:   u64 = 10_000_000;
+
+/// Number of nonce values processed in each parallel chunk.
 const CHUNK_SIZE:   usize = 10_000;
+
+/// How often to yield control back to the runtime. (every
+/// N nonce attempts)
 const YIELD_INTERVAL: u64 = 1000;
 
 /// Find a solution for the given challenge and difficulty level
+/// using sequential search.
+/// 
+/// This function searches for a nonce value that, when combined 
+/// with the challenge string and hashed with SHA-256, produces a hash
+/// starting with the required number of leading zeros.
+/// 
+/// # Arguments
+/// * `challenge` - The challenge string to hash (typically server-provided).
+/// * `difficulty` - Number of leading zeros required in the hash (higher = more difficult).
+///
+/// # Returns
+/// * `Ok((nonce, hash))` - The successful nonce value and resulting hash.
+/// * `Err(message)` - Error if no solution is found within `MAX_ATTEMPTS`.
+///
+/// # Performance
+/// Sequential search is suitable for single-threaded environments like WASM.
 pub fn find_solution(challenge: &str, difficulty: usize) -> Result<(u64, String), String> {
     let target_prefix = "0".repeat(difficulty);
 
@@ -34,6 +56,8 @@ pub fn find_solution(challenge: &str, difficulty: usize) -> Result<(u64, String)
 
 
 /// Find a solution using parallel processing
+/// 
+/// Something Ethan is working on. 
 #[cfg(feature = "parallel")]
 pub fn find_solution_parallel(
     challenge: &str,
@@ -64,15 +88,35 @@ pub fn find_solution_parallel(
     result.ok_or_else(|| "Could not find solution within attempt limit".into())
 }
 
-
-/// Calculate the hash for a given challenge and nonce
+/// Calculate the SHA-256 hash for a given challenge and nonce combination.
+///
+/// The input format is "challenge:nonce" (e.g., "hello_world:12345").
+///
+/// # Arguments
+/// * `challenge` - The challenge string.
+/// * `nonce` - The nonce value to try.
+///
+/// # Returns
+/// * Hexadecimal string representation of the SHA-256 hash (64 chars long).
 pub fn calculate_hash(challenge: &str, nonce: u64) -> String {
     let mut hasher = Sha256::new();
     hasher.update(format!("{}:{}", challenge, nonce).as_bytes());
     hex::encode(hasher.finalize())
 }
 
-/// Verify a solution for the given challenge and difficulty level
+/// Verify that a given nonce produces a valid solution for the challenge.
+///
+/// # Arguments
+/// * `challenge` - The original challenge string.
+/// * `nonce_str` - The proposed nonce as a string (will be parsed to u64).
+/// * `difficulty` - Required number of leading zeros in the hash.
+///
+/// # Returns
+/// * `true` - If the nonce produces a hash meeting the difficulty requirement
+/// * `false` - If nonce is invalid, hash doesn't meet the requirement, or parsing fails.
+///
+/// # Safety
+/// This function handles invalid nonce strings gracefully by returning false.
 pub fn verify_solution(challenge: &str, nonce_str: &str, difficulty: usize) -> bool {
     nonce_str
         .parse::<u64>()
