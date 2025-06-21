@@ -15,8 +15,8 @@ pub use solve::{
     calculate_hash,
 };
 
-#[cfg(feature = "parallel")]
-pub use solve::find_solution_parallel;
+#[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
+pub use solve::{find_solution_parallel, find_solution_multi_threaded};
 
 pub use verify::{
     verify_solution,
@@ -177,6 +177,35 @@ mod tests {
         
         // Verify response structure
         assert_eq!(response.challenge_signature, [0x33; 64]);
+        assert!(response.solution >= 0, "Solution should be non-negative");
+    }
+
+    // Integration test for the multi-threaded IronShield algorithm
+    #[test]
+    #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
+    fn test_ironshield_multi_threaded_solve_verify_integration() {
+        // Use the same parameters as the working test in solve.rs
+        let challenge = IronShieldChallenge::new(
+            "deadbeef".to_string(), // Same as the working test
+            1000000,
+            "test_website".to_string(),
+            [0xFF; 32], // Very easy difficulty - should find solution quickly
+            [0x00; 32],
+            [0x77; 64],
+        );
+
+        // Solve the challenge using multi-threaded version
+        let result = find_solution_multi_threaded(&challenge);
+        assert!(result.is_ok(), "Should find solution for IronShield multi-threaded integration test");
+
+        let response = result.unwrap();
+        
+        // Verify the solution
+        assert!(verify_ironshield_solution(&challenge, response.solution),
+                "IronShield multi-threaded verification should confirm the solution is valid");
+        
+        // Verify response structure
+        assert_eq!(response.challenge_signature, [0x77; 64]);
         assert!(response.solution >= 0, "Solution should be non-negative");
     }
 }
