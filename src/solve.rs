@@ -10,9 +10,7 @@ use rayon::prelude::*;
 use sha2::{Digest, Sha256};
 use ironshield_types::*;
 
-const MAX_ATTEMPTS: u64 = 10_000_000; // Maximum number of nonce values to try before giving up.
-#[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
-const CHUNK_SIZE: usize = 10_000; // Number of nonce values processed in each parallel chunk.
+// Legacy constants removed - use single_threaded and multi_threaded functions instead
 const MAX_ATTEMPTS_SINGLE_THREADED: i64 = 100_000_000; // Maximum number of nonce values to try in the new algorithm before giving up.
 
 // Optimized constants for multi-threaded PoW
@@ -21,85 +19,11 @@ const MULTI_THREADED_CHUNK_SIZE: i64 = 50_000; // Larger chunks for better cache
 #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
 const MAX_ATTEMPTS_MULTI_THREADED: i64 = 1_000_000_000; // Higher limit for parallel execution
 
-/// Find a solution for the given challenge and difficulty level
-/// using sequential search.
-/// 
-/// This function searches for a nonce value that, when combined 
-/// with the challenge string and hashed with SHA-256, produces a hash
-/// starting with the required number of leading zeros.
-/// 
-/// # Arguments
-/// * `challenge` - The challenge string to hash (typically server-provided).
-/// * `difficulty` - Number of leading zeros required in the hash (higher = more difficult).
-///
-/// # Returns
-/// * `Ok((nonce, hash))` - The successful nonce value and resulting hash.
-/// * `Err(message)` - Error if no solution is found within `MAX_ATTEMPTS`.
-///
-/// # Performance
-/// Sequential search is suitable for single-threaded environments like WASM.
-pub fn find_solution(challenge: &str, difficulty: usize) -> Result<(u64, String), String> {
-    let target_prefix = "0".repeat(difficulty);
 
-    for nonce in 0..MAX_ATTEMPTS {
-        let hash = calculate_hash(challenge, nonce);
 
-        if hash.starts_with(&target_prefix) {
-            return Ok((nonce, hash));
-        }
-    }
 
-    Err("Could not find solution within attempt limit".into())
-}
 
-/// Find a solution using parallel processing
-/// 
-/// Something Ethan is working on. 
-#[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
-pub fn find_solution_parallel(
-    challenge: &str,
-    difficulty: usize,
-    num_threads: usize,
-) -> Result<(u64, String), String> {
-    let target_prefix = "0".repeat(difficulty);
 
-    let result = (0..MAX_ATTEMPTS)
-        .step_by(num_threads)
-        .collect::<Vec<u64>>()
-        .par_chunks(CHUNK_SIZE)
-        .find_map_any(|chunk| {
-            chunk.iter().find_map(|&start_nonce| {
-                (0..num_threads).find_map(|thread_offset| {
-                    let nonce = start_nonce + thread_offset as u64;
-                    let hash = calculate_hash(challenge, nonce);
-
-                    if hash.starts_with(&target_prefix) {
-                        Some((nonce, hash))
-                    } else {
-                        None
-                    }
-                })
-            })
-        });
-
-    result.ok_or_else(|| "Could not find solution within attempt limit".into())
-}
-
-/// Calculate the SHA-256 hash for a given challenge and nonce combination.
-///
-/// The input format is "challenge:nonce" (e.g., "hello_world:12345").
-///
-/// # Arguments
-/// * `challenge` - The challenge string.
-/// * `nonce` - The nonce value to try.
-///
-/// # Returns
-/// * Hexadecimal string representation of the SHA-256 hash (64 chars long).
-pub fn calculate_hash(challenge: &str, nonce: u64) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(format!("{}:{}", challenge, nonce).as_bytes());
-    hex::encode(hasher.finalize())
-}
 
 /// Find a solution for the given IronShieldChallenge using single-threaded computation.
 /// 
@@ -285,27 +209,7 @@ pub fn find_solution_multi_threaded(
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_hash_calculation() {
-        let hash = calculate_hash("test_challenge", 12345);
-        assert!(!hash.is_empty());
-    }
 
-    #[test]
-    fn test_find_solution() {
-        let challenge = "test_challenge";
-        let difficulty = 1;
-
-        let result = find_solution(challenge, difficulty);
-        assert!(result.is_ok(), "Should find solution for easy challenge");
-
-        let (nonce, hash) = result.unwrap();
-        assert!(hash.starts_with("0"), "Hash should start with at least one zero");
-        
-        // Verify the solution by recalculating the hash
-        let verified_hash = calculate_hash(challenge, nonce);
-        assert_eq!(hash, verified_hash, "Hash should be reproducible");
-    }
 
     #[test]
     fn test_find_solution_single_threaded_easy() {

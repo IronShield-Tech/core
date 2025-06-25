@@ -9,19 +9,12 @@ mod solve;
 mod verify;
 
 // Re-export public functions from modules
-pub use solve::{
-    find_solution,
-    find_solution_single_threaded,
-    calculate_hash,
-};
+pub use solve::find_solution_single_threaded;
 
 #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
-pub use solve::{find_solution_parallel, find_solution_multi_threaded};
+pub use solve::find_solution_multi_threaded;
 
-pub use verify::{
-    verify_solution,
-    verify_ironshield_solution,
-};
+pub use verify::verify_ironshield_solution;
 
 #[cfg(test)]
 mod tests {
@@ -134,22 +127,28 @@ mod tests {
     // Integration test that verifies the solve and verify modules work together
     #[test]
     fn test_solve_verify_integration() {
-        let challenge = "integration_test_challenge";
-        let difficulty = 2;
+        let challenge = IronShieldChallenge::new(
+            "deadbeef".to_string(),
+            1000000,
+            "test_website".to_string(),
+            [0xFF; 32], // Easy difficulty
+            [0x00; 32],
+            [0x11; 64],
+        );
 
         // Solve the challenge
-        let result = find_solution(challenge, difficulty);
+        let result = find_solution_single_threaded(&challenge);
         assert!(result.is_ok(), "Should find solution for integration test");
 
-        let (nonce, hash) = result.unwrap();
+        let response = result.unwrap();
         
-        // Verify the solution
-        assert!(verify_solution(challenge, &nonce.to_string(), difficulty),
-                "Verification should confirm the solution is valid");
+        // Verify the solution using the IronShield verification
+        assert!(verify_ironshield_solution(&challenge, response.solution),
+                "IronShield verification should confirm the solution is valid");
         
-        // Verify the hash has the required difficulty
-        assert!(hash.starts_with(&"0".repeat(difficulty)),
-                "Hash should start with required number of zeros");
+        // Verify response structure
+        assert_eq!(response.challenge_signature, [0x11; 64]);
+        assert!(response.solution >= 0, "Solution should be non-negative");
     }
 
     // Integration test for the new IronShield algorithm

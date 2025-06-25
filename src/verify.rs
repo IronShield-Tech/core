@@ -8,44 +8,7 @@ use hex;
 use sha2::{Digest, Sha256};
 use ironshield_types::*;
 
-/// Verify that a given nonce produces a valid solution for the challenge.
-///
-/// # Arguments
-/// * `challenge` - The original challenge string.
-/// * `nonce_str` - The proposed nonce as a string (will be parsed to u64).
-/// * `difficulty` - Required number of leading zeros in the hash.
-///
-/// # Returns
-/// * `true` - If the nonce produces a hash meeting the difficulty requirement
-/// * `false` - If nonce is invalid, hash doesn't meet the requirement, or parsing fails.
-///
-/// # Safety
-/// This function handles invalid nonce strings gracefully by returning false.
-pub fn verify_solution(challenge: &str, nonce_str: &str, difficulty: usize) -> bool {
-    nonce_str
-        .parse::<u64>()
-        .map(|nonce| {
-            let hash = calculate_hash(challenge, nonce);
-            hash.starts_with(&"0".repeat(difficulty))
-        })
-        .unwrap_or(false)
-}
 
-/// Calculate the SHA-256 hash for a given challenge and nonce combination.
-///
-/// The input format is "challenge:nonce" (e.g., "hello_world:12345").
-///
-/// # Arguments
-/// * `challenge` - The challenge string.
-/// * `nonce` - The nonce value to try.
-///
-/// # Returns
-/// * Hexadecimal string representation of the SHA-256 hash (64 chars long).
-fn calculate_hash(challenge: &str, nonce: u64) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(format!("{}:{}", challenge, nonce).as_bytes());
-    hex::encode(hasher.finalize())
-}
 
 /// Verify that a solution is valid for a given IronShieldChallenge.
 /// 
@@ -85,29 +48,7 @@ pub fn verify_ironshield_solution(challenge: &IronShieldChallenge, nonce: i64) -
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::solve::find_solution;
 
-    #[test]
-    fn test_verification() {
-        let challenge = "test_challenge";
-        let difficulty = 1;
-
-        let (nonce, _) = find_solution(challenge, difficulty).unwrap();
-
-        assert!(verify_solution(challenge, &nonce.to_string(), difficulty));
-        assert!(!verify_solution(challenge, "999999", difficulty));
-    }
-
-    #[test]
-    fn test_verify_solution_invalid_nonce() {
-        let challenge = "test_challenge";
-        let difficulty = 1;
-
-        // Test with invalid nonce string
-        assert!(!verify_solution(challenge, "not_a_number", difficulty));
-        assert!(!verify_solution(challenge, "", difficulty));
-        assert!(!verify_solution(challenge, "-1", difficulty)); // negative numbers should fail parsing to u64
-    }
 
     #[test]
     fn test_verify_ironshield_solution() {
