@@ -2,17 +2,17 @@
 name = "ironshield-core"
 version = "0.1.0"
 edition = "2021"
-authors = [ "ebosspc <software2070@protonmail.com>" ]
-description = "Core library for the IronShield PoW system"
+authors = [ "IronShield Developers <software@ironshield.cloud>" ]
+description = "IronShield Core Functionality"
 repository = "https://github.com/IronShield-Tech/IronShield"
-license = "BUSL-1.1" # Becomes Apache-2.0 after 2028-07-24
+license = "SSPL-1.0"
 readme = "README.md"
 keywords = ["proof-of-work", "pow", "ddos", "firewall", "crypto"]
 categories = ["cryptography", "algorithms", "concurrency"]
 
 [dependencies]
 # Shared dependencies
-ironshield-types = { path = "../ironshield-types" }
+ironshield-types = { path = "../ironshield-types", version = "0.1.0" }
 serde.workspace = true
 serde_json.workspace = true
 hex.workspace = true
