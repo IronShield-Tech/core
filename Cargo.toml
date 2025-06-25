@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2021"
 authors = [ "ebosspc <software2070@protonmail.com>" ]
 description = "Core library for the IronShield PoW system"
-repository = "" # TODO: Add GitHub repository URL
+repository = "https://github.com/IronShield-Tech/IronShield"
 license = "BUSL-1.1" # Becomes Apache-2.0 after 2028-07-24
+readme = "README.md"
+keywords = ["proof-of-work", "pow", "ddos", "firewall", "crypto"]
+categories = ["cryptography", "algorithms", "concurrency"]
 
 [dependencies]
 # Shared dependencies
