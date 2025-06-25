@@ -8,17 +8,16 @@ repository = "" # TODO: Add GitHub repository URL
 license = "BUSL-1.1" # Becomes Apache-2.0 after 2028-07-24
 
 [dependencies]
+# Shared dependencies
 ironshield-types = { path = "../ironshield-types" }
-
-# Use workspace-shared serialization dependencies
 serde.workspace = true
 serde_json.workspace = true
 hex.workspace = true
+chrono.workspace = true
+sha2.workspace = true
 
-# Dependencies specific to ironshield-core
-sha2 = "0.10"
+# Workspace specific dependencies
 rayon = { version = "1.8", optional = true }
-chrono = { version = "0.4", features = ["serde"] }
 rand = "0.8"
 
 [lib]
