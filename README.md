@@ -1,3 +1,3 @@
 # IronShield Core
 
-Core functionality of IronShield.
+Core functionality and features of IronShield.
