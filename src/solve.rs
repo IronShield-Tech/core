@@ -13,17 +13,17 @@ use ironshield_types::*;
 // Legacy constants removed - use single_threaded and multi_threaded functions instead
 const MAX_ATTEMPTS_SINGLE_THREADED: i64 = 100_000_000; // Maximum number of nonce values to try in the new algorithm before giving up.
 
-// Optimized constants for multi-threaded PoW
-#[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
-const MULTI_THREADED_CHUNK_SIZE: i64 = 50_000; // Larger chunks for better cache locality
+// Optimized constants for multi-threaded PoW - thread-stride approach
 #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
 const MAX_ATTEMPTS_MULTI_THREADED: i64 = 1_000_000_000; // Higher limit for parallel execution
 
-
-
-
-
-
+// Get optimal number of threads for the system using rayon's thread pool
+#[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
+fn get_optimal_thread_count() -> usize {
+    // Use rayon's current thread count, with reasonable bounds
+    let thread_count = rayon::current_num_threads();
+    std::cmp::min(std::cmp::max(thread_count, 1), 32)
+}
 
 /// Find a solution for the given IronShieldChallenge using single-threaded computation.
 /// 
@@ -92,23 +92,22 @@ pub fn find_solution_single_threaded(
 
 /// Find a solution for the given IronShieldChallenge using optimized multi-threaded computation.
 /// 
-/// This function implements a highly optimized proof-of-work algorithm that distributes 
-/// the search space efficiently across all available CPU cores. It uses the same algorithm
-/// as find_solution_single_threaded but with optimal work distribution and minimal overhead.
+/// This function implements a highly optimized proof-of-work algorithm using a thread-stride
+/// approach that provides perfect load balancing across all available CPU cores.
 /// 
 /// ## Algorithm:
 /// 1. Pre-computes the random_nonce bytes once to avoid repeated hex decoding
-/// 2. Divides the nonce search space into optimal chunks for each CPU core
-/// 3. Uses Rayon's parallel iterator with find_map_any for early termination
-/// 4. Minimizes memory allocations and maximizes cache locality
+/// 2. Uses thread-stride distribution: each thread checks every Nth nonce (where N = thread count)
+/// 3. Uses Rayon's parallel iterator with find_map_any for immediate early termination
+/// 4. Eliminates memory allocations for chunk tracking
 /// 5. Returns immediately when any thread finds a valid solution
 /// 
 /// ## Optimization Strategy:
-/// - **Work Distribution**: Divides nonce space into chunks of MULTI_THREADED_CHUNK_SIZE
-/// - **Early Termination**: Uses find_map_any to stop all threads immediately upon solution
-/// - **Cache Efficiency**: Each thread works on contiguous nonce ranges
-/// - **Memory Optimization**: Reuses hash buffers and minimizes allocations
-/// - **Load Balancing**: Dynamic work stealing via Rayon's work-stealing scheduler
+/// - **Perfect Load Balancing**: Thread-stride ensures equal work distribution
+/// - **Zero Allocation Overhead**: No chunk tracking or upfront memory allocation
+/// - **Immediate Early Termination**: Uses find_map_any to stop all threads upon solution
+/// - **Cache Efficiency**: Threads access nearby memory regions with good spatial locality
+/// - **Adaptive Threading**: Uses optimal thread count based on available CPU cores
 /// 
 /// ## Performance Characteristics:
 /// - **Single-core overhead**: ~5-10% due to coordination (still faster than single-threaded for medium+ difficulty)
@@ -155,18 +154,21 @@ pub fn find_solution_multi_threaded(
     // Get the target threshold reference
     let target_threshold: &[u8; 32] = &challenge.challenge_param;
     
-    // Create iterator over nonce ranges with optimal chunk size for parallel processing
-    // Each chunk represents a contiguous range of nonces for a thread to process
-    let result = (0..MAX_ATTEMPTS_MULTI_THREADED)
-        .step_by(MULTI_THREADED_CHUNK_SIZE as usize)
-        .collect::<Vec<i64>>()
-        .par_iter()
-        .find_map_any(|&chunk_start| {
-            // Each thread processes a chunk of nonces from chunk_start to chunk_start + CHUNK_SIZE
-            let chunk_end = std::cmp::min(chunk_start + MULTI_THREADED_CHUNK_SIZE, MAX_ATTEMPTS_MULTI_THREADED);
+    // Use thread-stride approach for optimal load balancing and performance
+    // Each thread works on every Nth nonce where N = number of threads
+    // This provides perfect load balancing and eliminates chunk allocation overhead
+    let num_threads = get_optimal_thread_count();
+    
+    let result = (0..num_threads)
+        .into_par_iter()
+        .find_map_any(|thread_id| {
+            // Each thread starts at its thread_id and steps by num_threads
+            // Thread 0: checks nonces 0, num_threads, 2*num_threads, ...
+            // Thread 1: checks nonces 1, 1+num_threads, 1+2*num_threads, ...
+            // This ensures perfect load balancing with excellent cache performance
             
-            // Process this chunk sequentially within the thread for optimal cache performance
-            for nonce in chunk_start..chunk_end {
+            let mut nonce = thread_id as i64;
+            while nonce < MAX_ATTEMPTS_MULTI_THREADED {
                 // Convert nonce to little-endian bytes (8 bytes for i64)
                 let nonce_bytes: [u8; 8] = nonce.to_le_bytes();
                 
@@ -183,9 +185,12 @@ pub fn find_solution_multi_threaded(
                     // Found a valid solution! Return immediately to stop all other threads
                     return Some(nonce);
                 }
+                
+                // Move to next nonce for this thread
+                nonce += num_threads as i64;
             }
             
-            // No solution found in this chunk
+            // No solution found by this thread
             None
         });
     
