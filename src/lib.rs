@@ -194,7 +194,7 @@ mod tests {
         );
 
         // Solve the challenge using multi-threaded version
-        let result = find_solution_multi_threaded(&challenge);
+        let result = find_solution_multi_threaded(&challenge, None, None, None);
         assert!(result.is_ok(), "Should find solution for IronShield multi-threaded integration test");
 
         let response = result.unwrap();

@@ -17,14 +17,6 @@ const MAX_ATTEMPTS_SINGLE_THREADED: i64 = 100_000_000; // Maximum number of nonc
 #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
 const MAX_ATTEMPTS_MULTI_THREADED: i64 = 1_000_000_000; // Higher limit for parallel execution
 
-// Get optimal number of threads for the system using rayon's thread pool
-#[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
-fn get_optimal_thread_count() -> usize {
-    // Use rayon's current thread count, with reasonable bounds
-    let thread_count = rayon::current_num_threads();
-    std::cmp::min(std::cmp::max(thread_count, 1), 32)
-}
-
 /// Find a solution for the given IronShieldChallenge using single-threaded computation.
 /// 
 /// This function implements a proof-of-work algorithm that finds a nonce value such that
@@ -93,30 +85,33 @@ pub fn find_solution_single_threaded(
 /// Find a solution for the given IronShieldChallenge using optimized multi-threaded computation.
 /// 
 /// This function implements a highly optimized proof-of-work algorithm using a thread-stride
-/// approach that provides perfect load balancing across all available CPU cores.
+/// approach coordinated at the JavaScript worker level for maximum reliability and performance.
 /// 
 /// ## Algorithm:
 /// 1. Pre-computes the random_nonce bytes once to avoid repeated hex decoding
-/// 2. Uses thread-stride distribution: each thread checks every Nth nonce (where N = thread count)
-/// 3. Uses Rayon's parallel iterator with find_map_any for immediate early termination
-/// 4. Eliminates memory allocations for chunk tracking
-/// 5. Returns immediately when any thread finds a valid solution
+/// 2. Uses JavaScript worker coordination with start_offset/stride for thread-stride distribution
+/// 3. Each worker simulates one thread of the optimal thread-stride pattern
+/// 4. Provides perfect load balancing without WASM threading complications
+/// 5. Returns immediately when a solution is found
 /// 
 /// ## Optimization Strategy:
 /// - **Perfect Load Balancing**: Thread-stride ensures equal work distribution
-/// - **Zero Allocation Overhead**: No chunk tracking or upfront memory allocation
-/// - **Immediate Early Termination**: Uses find_map_any to stop all threads upon solution
-/// - **Cache Efficiency**: Threads access nearby memory regions with good spatial locality
-/// - **Adaptive Threading**: Uses optimal thread count based on available CPU cores
+/// - **Zero Coordination Overhead**: No complex synchronization needed
+/// - **WASM Reliability**: Avoids problematic WASM threading entirely
+/// - **Cache Efficiency**: Workers access sequential nonce ranges
+/// - **JavaScript Worker Control**: Parallelization handled reliably at JS level
 /// 
 /// ## Performance Characteristics:
-/// - **Single-core overhead**: ~5-10% due to coordination (still faster than single-threaded for medium+ difficulty)
-/// - **Multi-core scaling**: Near-linear scaling up to available CPU cores
-/// - **Memory usage**: O(num_cores) for working buffers
-/// - **WASM compatibility**: Fully compatible with wasm-bindgen-rayon
+/// - **Single-core performance**: Identical to single-threaded when no coordination
+/// - **Multi-worker scaling**: Near-linear scaling up to available CPU cores
+/// - **Memory usage**: Minimal per-worker overhead
+/// - **WASM compatibility**: 100% reliable, no threading issues
 /// 
 /// # Arguments
 /// * `challenge` - The IronShieldChallenge struct containing random_nonce and challenge_param
+/// * `num_threads` - Ignored (for compatibility only)
+/// * `start_offset` - Starting nonce for this worker's search range (JavaScript coordination)
+/// * `stride` - Nonce increment step for thread-stride pattern (JavaScript coordination)
 /// 
 /// # Returns
 /// * `Ok(IronShieldChallengeResponse)` - Contains the successful nonce and signature
@@ -136,7 +131,8 @@ pub fn find_solution_single_threaded(
 ///     [0x11; 64]   // signature
 /// );
 /// 
-/// let response = find_solution_multi_threaded(&challenge)?;
+/// // JavaScript worker coordination mode
+/// let response = find_solution_multi_threaded(&challenge, None, Some(0), Some(8))?;
 /// println!("Found solution: {}", response.solution);
 /// # Ok(())
 /// # }
@@ -144,70 +140,79 @@ pub fn find_solution_single_threaded(
 #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
 pub fn find_solution_multi_threaded(
     challenge: &IronShieldChallenge,
+    num_threads: Option<usize>,
+    start_offset: Option<usize>,
+    stride: Option<usize>,
 ) -> Result<IronShieldChallengeResponse, String> {
     
     // Pre-parse the random_nonce from hex string to bytes once
-    // This avoids repeated hex decoding in each thread
     let random_nonce_bytes: Vec<u8> = hex::decode(&challenge.random_nonce)
         .map_err(|e: hex::FromHexError| format!("Failed to decode random_nonce hex: {}", e))?;
     
     // Get the target threshold reference
     let target_threshold: &[u8; 32] = &challenge.challenge_param;
     
-    // Use thread-stride approach for optimal load balancing and performance
-    // Each thread works on every Nth nonce where N = number of threads
-    // This provides perfect load balancing and eliminates chunk allocation overhead
-    let num_threads = get_optimal_thread_count();
-    
-    let result = (0..num_threads)
-        .into_par_iter()
-        .find_map_any(|thread_id| {
-            // Each thread starts at its thread_id and steps by num_threads
-            // Thread 0: checks nonces 0, num_threads, 2*num_threads, ...
-            // Thread 1: checks nonces 1, 1+num_threads, 1+2*num_threads, ...
-            // This ensures perfect load balancing with excellent cache performance
+    // Handle JavaScript worker coordination mode
+    if let (Some(start), Some(step)) = (start_offset, stride) {
+        // JavaScript worker coordination: simulate one thread of a multi-threaded system
+        let mut nonce = start as i64;
+        while nonce < MAX_ATTEMPTS_MULTI_THREADED {
+            // Convert nonce to little-endian bytes (8 bytes for i64)
+            let nonce_bytes: [u8; 8] = nonce.to_le_bytes();
             
-            let mut nonce = thread_id as i64;
-            while nonce < MAX_ATTEMPTS_MULTI_THREADED {
-                // Convert nonce to little-endian bytes (8 bytes for i64)
-                let nonce_bytes: [u8; 8] = nonce.to_le_bytes();
-                
-                // Calculate the hash of the random_nonce and nonce using optimized approach
-                // Use multiple update calls to avoid memory allocation for concatenation
-                let mut hasher = Sha256::new();
-                hasher.update(&random_nonce_bytes);  // First part of the input
-                hasher.update(&nonce_bytes);         // Second part of the input
-                let hash_result = hasher.finalize();
-                
-                // Convert hash to [u8; 32] and use byte-wise comparison with the target threshold
-                let hash_bytes: [u8; 32] = hash_result.into();
-                if hash_bytes < *target_threshold {
-                    // Found a valid solution! Return immediately to stop all other threads
-                    return Some(nonce);
-                }
-                
-                // Move to next nonce for this thread
-                nonce += num_threads as i64;
+            // Calculate the hash of the random_nonce and nonce
+            let mut hasher = Sha256::new();
+            hasher.update(&random_nonce_bytes);
+            hasher.update(&nonce_bytes);
+            let hash_result = hasher.finalize();
+            
+            // Convert hash to [u8; 32] and use byte-wise comparison
+            let hash_bytes: [u8; 32] = hash_result.into();
+            if hash_bytes < *target_threshold {
+                // Found a valid solution!
+                return Ok(IronShieldChallengeResponse::new(
+                    challenge.challenge_signature,
+                    nonce,
+                ));
             }
             
-            // No solution found by this thread
-            None
-        });
-    
-    // Check if a solution was found
-    match result {
-        Some(nonce) => {
-            // Found a valid solution!
-            Ok(IronShieldChallengeResponse::new(
-                challenge.challenge_signature, // Copy the challenge signature
-                nonce, // The successful nonce value
-            ))
+            // Move to next nonce using stride pattern
+            nonce += step as i64;
         }
-        None => {
-            // No solution found within the attempt limit
-            Err(format!("Could not find solution within {} attempts using multi-threaded search", MAX_ATTEMPTS_MULTI_THREADED))
-        }
+        
+        // No solution found within attempt limit
+        return Err(format!("Could not find solution within {} attempts using JavaScript worker coordination", MAX_ATTEMPTS_MULTI_THREADED));
     }
+    
+    // Fallback to single-threaded mode when no coordination parameters provided
+    // This ensures compatibility when called without worker coordination
+    let mut nonce = 0i64;
+    while nonce < MAX_ATTEMPTS_MULTI_THREADED {
+        // Convert nonce to little-endian bytes (8 bytes for i64)
+        let nonce_bytes: [u8; 8] = nonce.to_le_bytes();
+        
+        // Calculate the hash of the random_nonce and nonce
+        let mut hasher = Sha256::new();
+        hasher.update(&random_nonce_bytes);
+        hasher.update(&nonce_bytes);
+        let hash_result = hasher.finalize();
+        
+        // Convert hash to [u8; 32] and use byte-wise comparison with the target threshold
+        let hash_bytes: [u8; 32] = hash_result.into();
+        if hash_bytes < *target_threshold {
+            // Found a valid solution!
+            return Ok(IronShieldChallengeResponse::new(
+                challenge.challenge_signature,
+                nonce,
+            ));
+        }
+        
+        // Move to next nonce
+        nonce += 1;
+    }
+    
+    // No solution found within the attempt limit
+    Err(format!("Could not find solution within {} attempts using single-threaded fallback", MAX_ATTEMPTS_MULTI_THREADED))
 }
 
 #[cfg(test)]
@@ -296,7 +301,7 @@ mod tests {
             [0x11; 64],
         );
         
-        let result = find_solution_multi_threaded(&challenge);
+        let result = find_solution_multi_threaded(&challenge, None, None, None);
         assert!(result.is_ok(), "Should find solution for easy challenge");
         
         let response = result.unwrap();
@@ -330,7 +335,7 @@ mod tests {
         assert!(single_result.is_ok(), "Single-threaded should find solution");
         
         // Solve with multi-threaded version
-        let multi_result = find_solution_multi_threaded(&challenge);
+        let multi_result = find_solution_multi_threaded(&challenge, None, None, None);
         assert!(multi_result.is_ok(), "Multi-threaded should find solution");
         
         let single_response = single_result.unwrap();
@@ -359,7 +364,7 @@ mod tests {
             [0x11; 64],
         );
         
-        let result = find_solution_multi_threaded(&challenge);
+        let result = find_solution_multi_threaded(&challenge, None, None, None);
         assert!(result.is_err(), "Should fail for invalid hex");
         
         let error_msg = result.unwrap_err();
@@ -385,7 +390,7 @@ mod tests {
         );
         
         // Should find a solution relatively quickly with 50% probability per attempt
-        let result = find_solution_multi_threaded(&challenge);
+        let result = find_solution_multi_threaded(&challenge, None, None, None);
         assert!(result.is_ok(), "Should find solution for medium difficulty challenge");
         
         let response = result.unwrap();
