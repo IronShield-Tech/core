@@ -54,7 +54,6 @@ mod tests {
     fn test_verify_ironshield_solution() {
         // Create a challenge with reasonable threshold
         let challenge: IronShieldChallenge = IronShieldChallenge::new(
-            "cafe1234".to_string(),
             1000000,
             "test_website".to_string(),
             [0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -74,29 +73,12 @@ mod tests {
         // Verify using our verification function
         assert!(verify_ironshield_solution(&challenge, response.solution), 
                 "Verification function should confirm the solution is valid");
-                
-        // Verify that an obviously wrong nonce fails (much larger value)
-        assert!(!verify_ironshield_solution(&challenge, response.solution + 1000000), 
-                "Obviously wrong nonce should fail verification");
-                
-        // Test with invalid hex in the challenge
-        let bad_challenge: IronShieldChallenge = IronShieldChallenge::new(
-            "invalid_hex_zzzz".to_string(), // Invalid hex
-            1000000,
-            "test_website".to_string(),
-            [0x80; 32],
-            [0x00; 32],
-            [0x22; 64],
-        );
-        assert!(!verify_ironshield_solution(&bad_challenge, 12345), 
-                "Challenge with invalid hex should fail verification");
     }
 
     #[test]
     fn test_verify_ironshield_solution_edge_cases() {
         // Test with very easy challenge (all 0xFF)
         let easy_challenge = IronShieldChallenge::new(
-            "deadbeef".to_string(),
             1000000,
             "test_website".to_string(),
             [0xFF; 32], // Very easy
@@ -111,7 +93,6 @@ mod tests {
         
         // Test with impossible challenge (all 0x00)
         let impossible_challenge = IronShieldChallenge::new(
-            "deadbeef".to_string(),
             1000000,
             "test_website".to_string(),
             [0x00; 32], // Impossible

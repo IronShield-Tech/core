@@ -24,15 +24,12 @@ mod tests {
     #[test]
     fn test_ironshield_challenge_creation() {
         let challenge = IronShieldChallenge::new(
-            "deadbeef".to_string(),
             1000000,
             "test_website".to_string(),
             [0xFF; 32], // Very high threshold - should be easy to find solution
             [0x00; 32],
             [0x00; 64],
         );
-        
-        assert_eq!(challenge.random_nonce, "deadbeef");
         assert_eq!(challenge.created_time, 1000000);
         assert_eq!(challenge.expiration_time, 1030000); // +30 seconds
         assert_eq!(challenge.website_id, "test_website");
@@ -43,7 +40,6 @@ mod tests {
     fn test_ironshield_challenge_expiration() {
         let past_time = Utc::now().timestamp_millis() - 60000; // 1 minute ago
         let challenge: IronShieldChallenge = IronShieldChallenge::new(
-            "deadbeef".to_string(),
             past_time,
             "test_website".to_string(),
             [0xFF; 32],
@@ -58,7 +54,6 @@ mod tests {
     #[test]
     fn test_serde_serialization() {
         let challenge: IronShieldChallenge = IronShieldChallenge::new(
-            "deadbeef".to_string(),
             1000000,
             "test_website".to_string(),
             [0x12; 32],
@@ -72,7 +67,6 @@ mod tests {
         
         // Test deserialization
         let deserialized: IronShieldChallenge = serde_json::from_str(&serialized).unwrap();
-        assert_eq!(deserialized.random_nonce, challenge.random_nonce);
         assert_eq!(deserialized.challenge_param, challenge.challenge_param);
         assert_eq!(deserialized.public_key, challenge.public_key);
         assert_eq!(deserialized.challenge_signature, challenge.challenge_signature);
@@ -128,7 +122,6 @@ mod tests {
     #[test]
     fn test_solve_verify_integration() {
         let challenge = IronShieldChallenge::new(
-            "deadbeef".to_string(),
             1000000,
             "test_website".to_string(),
             [0xFF; 32], // Easy difficulty
@@ -156,7 +149,6 @@ mod tests {
     fn test_ironshield_solve_verify_integration() {
         // Use the same parameters as the working test in solve.rs
         let challenge = IronShieldChallenge::new(
-            "deadbeef".to_string(), // Same as the working test
             1000000,
             "test_website".to_string(),
             [0xFF; 32], // Very easy difficulty - should find solution quickly
@@ -185,7 +177,6 @@ mod tests {
     fn test_ironshield_multi_threaded_solve_verify_integration() {
         // Use the same parameters as the working test in solve.rs
         let challenge = IronShieldChallenge::new(
-            "deadbeef".to_string(), // Same as the working test
             1000000,
             "test_website".to_string(),
             [0xFF; 32], // Very easy difficulty - should find solution quickly

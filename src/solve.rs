@@ -6,7 +6,6 @@
 
 use hex;
 #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
-use rayon::prelude::*;
 use sha2::{Digest, Sha256};
 use ironshield_types::*;
 
@@ -123,7 +122,6 @@ pub fn find_solution_single_threaded(
 /// 
 /// # fn example() -> Result<(), String> {
 /// let challenge = IronShieldChallenge::new(
-///     "deadbeef".to_string(),
 ///     1000000,  // timestamp
 ///     "website".to_string(), 
 ///     [0xFF; 32],  // difficulty_threshold (easy)
@@ -225,7 +223,6 @@ mod tests {
     fn test_find_solution_single_threaded_easy() {
         // Create a challenge with very high threshold (easy to solve)
         let challenge = IronShieldChallenge::new(
-            "deadbeef".to_string(),
             1000000,
             "test_website".to_string(),
             [0xFF; 32], // Maximum possible value - should find solution quickly
@@ -241,24 +238,6 @@ mod tests {
         assert!(response.solution >= 0, "Solution should be non-negative");
     }
 
-    #[test]
-    fn test_find_solution_single_threaded_invalid_hex() {
-        // Create a challenge with invalid hex string
-        let challenge = IronShieldChallenge::new(
-            "not_valid_hex!".to_string(), // Invalid hex
-            1000000,
-            "test_website".to_string(),
-            [0xFF; 32],
-            [0x00; 32],
-            [0x11; 64],
-        );
-        
-        let result = find_solution_single_threaded(&challenge);
-        assert!(result.is_err(), "Should fail for invalid hex");
-        
-        let error_msg = result.unwrap_err();
-        assert!(error_msg.contains("Failed to decode random_nonce hex"), "Should contain hex decode error");
-    }
 
     #[test]
     fn test_performance_optimization_correctness() {
@@ -293,7 +272,6 @@ mod tests {
     fn test_find_solution_multi_threaded_easy() {
         // Create a challenge with very high threshold (easy to solve)
         let challenge = IronShieldChallenge::new(
-            "deadbeef".to_string(),
             1000000,
             "test_website".to_string(),
             [0xFF; 32], // Maximum possible value - should find solution quickly
@@ -319,7 +297,6 @@ mod tests {
         // Test that multi-threaded and single-threaded versions find valid solutions
         // for the same challenge (solutions may differ due to search order)
         let challenge = IronShieldChallenge::new(
-            "cafebabe".to_string(),
             1000000,
             "test_website".to_string(),
             [0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -353,32 +330,10 @@ mod tests {
     
     #[test]
     #[cfg(feature = "parallel")]
-    fn test_find_solution_multi_threaded_invalid_hex() {
-        // Create a challenge with invalid hex string
-        let challenge = IronShieldChallenge::new(
-            "not_valid_hex!".to_string(), // Invalid hex
-            1000000,
-            "test_website".to_string(),
-            [0xFF; 32],
-            [0x00; 32],
-            [0x11; 64],
-        );
-        
-        let result = find_solution_multi_threaded(&challenge, None, None, None);
-        assert!(result.is_err(), "Should fail for invalid hex");
-        
-        let error_msg = result.unwrap_err();
-        assert!(error_msg.contains("Failed to decode random_nonce hex"), "Should contain hex decode error");
-    }
-    
-    
-    #[test]
-    #[cfg(feature = "parallel")]
     fn test_find_solution_multi_threaded_deterministic_correctness() {
         // Test that the multi-threaded function produces correct results
         // by testing with a known challenge where we can predict the solution range
         let challenge = IronShieldChallenge::new(
-            "12345678".to_string(), // Simple hex pattern
             1000000,
             "test_website".to_string(),
             [0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
