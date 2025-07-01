@@ -24,37 +24,18 @@ mod tests {
     #[test]
     fn test_ironshield_challenge_creation() {
         let challenge = IronShieldChallenge::new(
-            1000000,
             "test_website".to_string(),
             [0xFF; 32], // Very high threshold - should be easy to find solution
             [0x00; 32],
             [0x00; 64],
         );
-        assert_eq!(challenge.created_time, 1000000);
-        assert_eq!(challenge.expiration_time, 1030000); // +30 seconds
         assert_eq!(challenge.website_id, "test_website");
         assert_eq!(challenge.challenge_param, [0xFF; 32]);
     }
 
     #[test]
-    fn test_ironshield_challenge_expiration() {
-        let past_time = Utc::now().timestamp_millis() - 60000; // 1 minute ago
-        let challenge: IronShieldChallenge = IronShieldChallenge::new(
-            past_time,
-            "test_website".to_string(),
-            [0xFF; 32],
-            [0x00; 32],
-            [0x00; 64],
-        );
-        
-        assert!(challenge.is_expired(), "Challenge created in the past should be expired");
-        assert!(challenge.time_until_expiration() < 0, "Time until expiration should be negative");
-    }
-
-    #[test]
     fn test_serde_serialization() {
         let challenge: IronShieldChallenge = IronShieldChallenge::new(
-            1000000,
             "test_website".to_string(),
             [0x12; 32],
             [0x34; 32],
@@ -122,7 +103,6 @@ mod tests {
     #[test]
     fn test_solve_verify_integration() {
         let challenge = IronShieldChallenge::new(
-            1000000,
             "test_website".to_string(),
             [0xFF; 32], // Easy difficulty
             [0x00; 32],
@@ -149,7 +129,6 @@ mod tests {
     fn test_ironshield_solve_verify_integration() {
         // Use the same parameters as the working test in solve.rs
         let challenge = IronShieldChallenge::new(
-            1000000,
             "test_website".to_string(),
             [0xFF; 32], // Very easy difficulty - should find solution quickly
             [0x00; 32],
@@ -177,7 +156,6 @@ mod tests {
     fn test_ironshield_multi_threaded_solve_verify_integration() {
         // Use the same parameters as the working test in solve.rs
         let challenge = IronShieldChallenge::new(
-            1000000,
             "test_website".to_string(),
             [0xFF; 32], // Very easy difficulty - should find solution quickly
             [0x00; 32],

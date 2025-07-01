@@ -54,7 +54,6 @@ mod tests {
     fn test_verify_ironshield_solution() {
         // Create a challenge with reasonable threshold
         let challenge: IronShieldChallenge = IronShieldChallenge::new(
-            1000000,
             "test_website".to_string(),
             [0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -79,7 +78,6 @@ mod tests {
     fn test_verify_ironshield_solution_edge_cases() {
         // Test with very easy challenge (all 0xFF)
         let easy_challenge = IronShieldChallenge::new(
-            1000000,
             "test_website".to_string(),
             [0xFF; 32], // Very easy
             [0x00; 32],
@@ -93,7 +91,6 @@ mod tests {
         
         // Test with impossible challenge (all 0x00)
         let impossible_challenge = IronShieldChallenge::new(
-            1000000,
             "test_website".to_string(),
             [0x00; 32], // Impossible
             [0x00; 32],
