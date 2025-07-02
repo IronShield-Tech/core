@@ -19,15 +19,15 @@ pub use verify::verify_ironshield_solution;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
 
     #[test]
     fn test_ironshield_challenge_creation() {
+        let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
             [0xFF; 32], // Very high threshold - should be easy to find solution
+            dummy_key,
             [0x00; 32],
-            [0x00; 64],
         );
         assert_eq!(challenge.website_id, "test_website");
         assert_eq!(challenge.challenge_param, [0xFF; 32]);
@@ -35,11 +35,12 @@ mod tests {
 
     #[test]
     fn test_serde_serialization() {
+        let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge: IronShieldChallenge = IronShieldChallenge::new(
             "test_website".to_string(),
             [0x12; 32],
+            dummy_key,
             [0x34; 32],
-            [0x56; 64],
         );
         
         // Test serialization
@@ -102,11 +103,12 @@ mod tests {
     // Integration test that verifies the solve and verify modules work together
     #[test]
     fn test_solve_verify_integration() {
+        let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
             [0xFF; 32], // Easy difficulty
+            dummy_key,
             [0x00; 32],
-            [0x11; 64],
         );
 
         // Solve the challenge
@@ -120,19 +122,20 @@ mod tests {
                 "IronShield verification should confirm the solution is valid");
         
         // Verify response structure
-        assert_eq!(response.challenge_signature, [0x11; 64]);
+        assert_eq!(response.challenge_signature, challenge.challenge_signature);
         assert!(response.solution >= 0, "Solution should be non-negative");
     }
 
     // Integration test for the new IronShield algorithm
     #[test]
     fn test_ironshield_solve_verify_integration() {
+        let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         // Use the same parameters as the working test in solve.rs
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
             [0xFF; 32], // Very easy difficulty - should find solution quickly
+            dummy_key,
             [0x00; 32],
-            [0x33; 64],
         );
 
         // Solve the challenge
@@ -146,7 +149,7 @@ mod tests {
                 "IronShield verification should confirm the solution is valid");
         
         // Verify response structure
-        assert_eq!(response.challenge_signature, [0x33; 64]);
+        assert_eq!(response.challenge_signature, challenge.challenge_signature);
         assert!(response.solution >= 0, "Solution should be non-negative");
     }
 
@@ -154,12 +157,13 @@ mod tests {
     #[test]
     #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
     fn test_ironshield_multi_threaded_solve_verify_integration() {
+        let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         // Use the same parameters as the working test in solve.rs
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
             [0xFF; 32], // Very easy difficulty - should find solution quickly
+            dummy_key,
             [0x00; 32],
-            [0x77; 64],
         );
 
         // Solve the challenge using multi-threaded version
@@ -173,7 +177,7 @@ mod tests {
                 "IronShield multi-threaded verification should confirm the solution is valid");
         
         // Verify response structure
-        assert_eq!(response.challenge_signature, [0x77; 64]);
+        assert_eq!(response.challenge_signature, challenge.challenge_signature);
         assert!(response.solution >= 0, "Solution should be non-negative");
     }
 }

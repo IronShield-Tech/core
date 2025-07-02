@@ -118,14 +118,15 @@ pub fn find_solution_single_threaded(
 /// 
 /// # Example
 /// ```rust
-/// use ironshield_core::{IronShieldChallenge, find_solution_multi_threaded};
+/// use ironshield_core::{IronShieldChallenge, find_solution_multi_threaded, SigningKey};
 /// 
 /// # fn example() -> Result<(), String> {
+/// let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
 /// let challenge = IronShieldChallenge::new(
 ///     "website".to_string(), 
 ///     [0xFF; 32],  // difficulty_threshold (easy)
+///     dummy_key,
 ///     [0x00; 32],  // public_key
-///     [0x11; 64]   // signature
 /// );
 /// 
 /// // JavaScript worker coordination mode
@@ -137,7 +138,7 @@ pub fn find_solution_single_threaded(
 #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
 pub fn find_solution_multi_threaded(
     challenge: &IronShieldChallenge,
-    num_threads: Option<usize>,
+    _num_threads: Option<usize>,
     start_offset: Option<usize>,
     stride: Option<usize>,
 ) -> Result<IronShieldChallengeResponse, String> {
@@ -216,26 +217,24 @@ pub fn find_solution_multi_threaded(
 mod tests {
     use super::*;
 
-
-
     #[test]
     fn test_find_solution_single_threaded_easy() {
         // Create a challenge with very high threshold (easy to solve)
+        let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
             [0xFF; 32], // Maximum possible value - should find solution quickly
+            dummy_key,
             [0x00; 32],
-            [0x11; 64],
         );
         
         let result = find_solution_single_threaded(&challenge);
         assert!(result.is_ok(), "Should find solution for easy challenge");
         
         let response = result.unwrap();
-        assert_eq!(response.challenge_signature, [0x11; 64]);
+        assert_eq!(response.challenge_signature, challenge.challenge_signature);
         assert!(response.solution >= 0, "Solution should be non-negative");
     }
-
 
     #[test]
     fn test_performance_optimization_correctness() {
@@ -269,18 +268,19 @@ mod tests {
     #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
     fn test_find_solution_multi_threaded_easy() {
         // Create a challenge with very high threshold (easy to solve)
+        let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
             [0xFF; 32], // Maximum possible value - should find solution quickly
+            dummy_key,
             [0x00; 32],
-            [0x11; 64],
         );
         
         let result = find_solution_multi_threaded(&challenge, None, None, None);
         assert!(result.is_ok(), "Should find solution for easy challenge");
         
         let response = result.unwrap();
-        assert_eq!(response.challenge_signature, [0x11; 64]);
+        assert_eq!(response.challenge_signature, challenge.challenge_signature);
         assert!(response.solution >= 0, "Solution should be non-negative");
         
         // Verify the solution using the verification function
@@ -293,14 +293,15 @@ mod tests {
     fn test_find_solution_multi_threaded_vs_single_threaded() {
         // Test that multi-threaded and single-threaded versions find valid solutions
         // for the same challenge (solutions may differ due to search order)
+        let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
             [0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // Medium difficulty
+            dummy_key,
             [0x00; 32],
-            [0x33; 64],
         );
         
         // Solve with single-threaded version
@@ -329,14 +330,15 @@ mod tests {
     fn test_find_solution_multi_threaded_deterministic_correctness() {
         // Test that the multi-threaded function produces correct results
         // by testing with a known challenge where we can predict the solution range
+        let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
             [0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // ~50% probability
+            dummy_key,
             [0x00; 32],
-            [0x55; 64],
         );
         
         // Should find a solution relatively quickly with 50% probability per attempt
@@ -355,7 +357,7 @@ mod tests {
         
         assert!(hash_bytes < challenge.challenge_param, 
                 "Solution should satisfy the challenge requirement");
-        assert_eq!(response.challenge_signature, [0x55; 64], 
+        assert_eq!(response.challenge_signature, challenge.challenge_signature, 
                 "Response should preserve challenge signature");
     }
 } 

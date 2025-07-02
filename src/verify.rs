@@ -53,14 +53,15 @@ mod tests {
     #[test]
     fn test_verify_ironshield_solution() {
         // Create a challenge with reasonable threshold
+        let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge: IronShieldChallenge = IronShieldChallenge::new(
             "test_website".to_string(),
             [0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // Medium threshold
+            dummy_key,
             [0x00; 32],
-            [0x22; 64],
         );
         
         // Find a solution using the solver
@@ -77,11 +78,12 @@ mod tests {
     #[test]
     fn test_verify_ironshield_solution_edge_cases() {
         // Test with very easy challenge (all 0xFF)
+        let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let easy_challenge = IronShieldChallenge::new(
             "test_website".to_string(),
             [0xFF; 32], // Very easy
+            dummy_key.clone(),
             [0x00; 32],
-            [0x11; 64],
         );
         
         // Almost any nonce should work for this challenge
@@ -93,8 +95,8 @@ mod tests {
         let impossible_challenge = IronShieldChallenge::new(
             "test_website".to_string(),
             [0x00; 32], // Impossible
+            dummy_key,
             [0x00; 32],
-            [0x11; 64],
         );
         
         // No nonce should work for this challenge
