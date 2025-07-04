@@ -12,7 +12,7 @@ categories = ["cryptography", "algorithms", "concurrency"]
 
 [dependencies]
 # Shared dependencies
-ironshield-types = { path = "../ironshield-types", version = "0.1.0" }
+ironshield-types = { path = "../ironshield-types", version = "0.1" }
 serde.workspace = true
 serde_json.workspace = true
 hex.workspace = true
