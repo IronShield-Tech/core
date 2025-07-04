@@ -71,7 +71,7 @@ pub fn find_solution_single_threaded(
         if hash_bytes < *target_threshold {
             // Found a valid solution!
             return Ok(IronShieldChallengeResponse::new(
-                challenge.challenge_signature, // Copy the challenge signature
+                challenge.clone(), // Pass the complete challenge
                 nonce, // The successful nonce value
             ));
         }
@@ -169,7 +169,7 @@ pub fn find_solution_multi_threaded(
             if hash_bytes < *target_threshold {
                 // Found a valid solution!
                 return Ok(IronShieldChallengeResponse::new(
-                    challenge.challenge_signature,
+                    challenge.clone(),
                     nonce,
                 ));
             }
@@ -200,7 +200,7 @@ pub fn find_solution_multi_threaded(
         if hash_bytes < *target_threshold {
             // Found a valid solution!
             return Ok(IronShieldChallengeResponse::new(
-                challenge.challenge_signature,
+                challenge.clone(),
                 nonce,
             ));
         }
@@ -232,7 +232,7 @@ mod tests {
         assert!(result.is_ok(), "Should find solution for easy challenge");
         
         let response = result.unwrap();
-        assert_eq!(response.challenge_signature, challenge.challenge_signature);
+        assert_eq!(response.solved_challenge.challenge_signature, challenge.challenge_signature);
         assert!(response.solution >= 0, "Solution should be non-negative");
     }
 
@@ -280,11 +280,11 @@ mod tests {
         assert!(result.is_ok(), "Should find solution for easy challenge");
         
         let response = result.unwrap();
-        assert_eq!(response.challenge_signature, challenge.challenge_signature);
+        assert_eq!(response.solved_challenge.challenge_signature, challenge.challenge_signature);
         assert!(response.solution >= 0, "Solution should be non-negative");
         
         // Verify the solution using the verification function
-        assert!(crate::verify::verify_ironshield_solution(&challenge, response.solution),
+        assert!(crate::verify::verify_ironshield_solution(&response),
                 "Multi-threaded solution should pass verification");
     }
     
@@ -316,13 +316,13 @@ mod tests {
         let multi_response = multi_result.unwrap();
         
         // Both solutions should be valid (but may be different nonces)
-        assert!(crate::verify::verify_ironshield_solution(&challenge, single_response.solution),
+        assert!(crate::verify::verify_ironshield_solution(&single_response),
                 "Single-threaded solution should be valid");
-        assert!(crate::verify::verify_ironshield_solution(&challenge, multi_response.solution),
+        assert!(crate::verify::verify_ironshield_solution(&multi_response),
                 "Multi-threaded solution should be valid");
         
         // Both should have the same challenge signature
-        assert_eq!(single_response.challenge_signature, multi_response.challenge_signature);
+        assert_eq!(single_response.solved_challenge.challenge_signature, multi_response.solved_challenge.challenge_signature);
     }
     
     #[test]
@@ -357,7 +357,7 @@ mod tests {
         
         assert!(hash_bytes < challenge.challenge_param, 
                 "Solution should satisfy the challenge requirement");
-        assert_eq!(response.challenge_signature, challenge.challenge_signature, 
+        assert_eq!(response.solved_challenge.challenge_signature, challenge.challenge_signature, 
                 "Response should preserve challenge signature");
     }
 } 

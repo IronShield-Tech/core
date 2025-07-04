@@ -118,11 +118,11 @@ mod tests {
         let response = result.unwrap();
         
         // Verify the solution using the IronShield verification
-        assert!(verify_ironshield_solution(&challenge, response.solution),
+        assert!(verify_ironshield_solution(&response),
                 "IronShield verification should confirm the solution is valid");
         
         // Verify response structure
-        assert_eq!(response.challenge_signature, challenge.challenge_signature);
+        assert_eq!(response.solved_challenge.challenge_signature, challenge.challenge_signature);
         assert!(response.solution >= 0, "Solution should be non-negative");
     }
 
@@ -145,11 +145,11 @@ mod tests {
         let response = result.unwrap();
         
         // Verify the solution
-        assert!(verify_ironshield_solution(&challenge, response.solution),
+        assert!(verify_ironshield_solution(&response),
                 "IronShield verification should confirm the solution is valid");
         
         // Verify response structure
-        assert_eq!(response.challenge_signature, challenge.challenge_signature);
+        assert_eq!(response.solved_challenge.challenge_signature, challenge.challenge_signature);
         assert!(response.solution >= 0, "Solution should be non-negative");
     }
 
@@ -173,11 +173,11 @@ mod tests {
         let response = result.unwrap();
         
         // Verify the solution
-        assert!(verify_ironshield_solution(&challenge, response.solution),
+        assert!(verify_ironshield_solution(&response),
                 "IronShield multi-threaded verification should confirm the solution is valid");
         
         // Verify response structure
-        assert_eq!(response.challenge_signature, challenge.challenge_signature);
+        assert_eq!(response.solved_challenge.challenge_signature, challenge.challenge_signature);
         assert!(response.solution >= 0, "Solution should be non-negative");
     }
 }

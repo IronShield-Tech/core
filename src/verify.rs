@@ -8,21 +8,38 @@ use hex;
 use sha2::{Digest, Sha256};
 use ironshield_types::*;
 
-
-
-/// Verify that a solution is valid for a given IronShieldChallenge.
+/// Verify that an IronShieldChallengeResponse contains a valid solution.
 /// 
 /// This function uses the same optimized hashing approach as find_solution_single_threaded
-/// to ensure consistency and performance.
+/// to ensure consistency and performance. It extracts the challenge and solution from
+/// the response and verifies that the solution is valid for the challenge.
 /// 
 /// # Arguments
-/// * `challenge` - The original IronShieldChallenge
-/// * `nonce` - The proposed solution nonce
+/// * `response` - The IronShieldChallengeResponse containing both the challenge and solution
 /// 
 /// # Returns
-/// * `true` if the nonce produces a hash less than the challenge_param
-/// * `false` if the nonce is invalid or doesn't meet the requirement
-pub fn verify_ironshield_solution(challenge: &IronShieldChallenge, nonce: i64) -> bool {
+/// * `true` if the solution produces a hash less than the challenge_param
+/// * `false` if the solution is invalid or doesn't meet the requirement
+/// 
+/// # Example
+/// ```
+/// use ironshield_core::{find_solution_single_threaded, verify_ironshield_solution, IronShieldChallenge, SigningKey};
+/// 
+/// let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
+/// let challenge = IronShieldChallenge::new(
+///     "test_website".to_string(),
+///     [0xFF; 32], // Easy difficulty
+///     dummy_key,
+///     [0x00; 32],
+/// );
+/// 
+/// let response = find_solution_single_threaded(&challenge).unwrap();
+/// assert!(verify_ironshield_solution(&response));
+/// ```
+pub fn verify_ironshield_solution(response: &IronShieldChallengeResponse) -> bool {
+    let challenge = &response.solved_challenge;
+    let nonce = response.solution;
+    
     // Parse the random_nonce from hex string to bytes
     let random_nonce_bytes = match hex::decode(&challenge.random_nonce) {
         Ok(bytes) => bytes,
@@ -49,7 +66,6 @@ pub fn verify_ironshield_solution(challenge: &IronShieldChallenge, nonce: i64) -
 mod tests {
     use super::*;
 
-
     #[test]
     fn test_verify_ironshield_solution() {
         // Create a challenge with reasonable threshold
@@ -71,7 +87,7 @@ mod tests {
         let response = result.unwrap();
         
         // Verify using our verification function
-        assert!(verify_ironshield_solution(&challenge, response.solution), 
+        assert!(verify_ironshield_solution(&response), 
                 "Verification function should confirm the solution is valid");
     }
 
@@ -86,10 +102,14 @@ mod tests {
             [0x00; 32],
         );
         
-        // Almost any nonce should work for this challenge
-        assert!(verify_ironshield_solution(&easy_challenge, 0));
-        assert!(verify_ironshield_solution(&easy_challenge, 1));
-        assert!(verify_ironshield_solution(&easy_challenge, 12345));
+        // Create responses with different nonces - almost any nonce should work for this challenge
+        let response1 = IronShieldChallengeResponse::new(easy_challenge.clone(), 0);
+        let response2 = IronShieldChallengeResponse::new(easy_challenge.clone(), 1);
+        let response3 = IronShieldChallengeResponse::new(easy_challenge.clone(), 12345);
+        
+        assert!(verify_ironshield_solution(&response1));
+        assert!(verify_ironshield_solution(&response2));
+        assert!(verify_ironshield_solution(&response3));
         
         // Test with impossible challenge (all 0x00)
         let impossible_challenge = IronShieldChallenge::new(
@@ -99,9 +119,13 @@ mod tests {
             [0x00; 32],
         );
         
-        // No nonce should work for this challenge
-        assert!(!verify_ironshield_solution(&impossible_challenge, 0));
-        assert!(!verify_ironshield_solution(&impossible_challenge, 1));
-        assert!(!verify_ironshield_solution(&impossible_challenge, 12345));
+        // Create responses - no nonce should work for this challenge
+        let impossible_response1 = IronShieldChallengeResponse::new(impossible_challenge.clone(), 0);
+        let impossible_response2 = IronShieldChallengeResponse::new(impossible_challenge.clone(), 1);
+        let impossible_response3 = IronShieldChallengeResponse::new(impossible_challenge, 12345);
+        
+        assert!(!verify_ironshield_solution(&impossible_response1));
+        assert!(!verify_ironshield_solution(&impossible_response2));
+        assert!(!verify_ironshield_solution(&impossible_response3));
     }
 } 
