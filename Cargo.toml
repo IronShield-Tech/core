@@ -1,6 +1,6 @@
 [package]
 name = "ironshield-core"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 authors = [ "IronShield Developers <software@ironshield.cloud>" ]
 description = "IronShield Core Functionality"
