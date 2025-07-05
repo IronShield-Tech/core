@@ -11,13 +11,15 @@ keywords = ["proof-of-work", "pow", "ddos", "firewall", "crypto"]
 categories = ["cryptography", "algorithms", "concurrency"]
 
 [dependencies]
-# Shared dependencies
 ironshield-types = { path = "../ironshield-types", version = "0.1" }
-serde.workspace = true
-serde_json.workspace = true
-hex.workspace = true
-chrono.workspace = true
-sha2.workspace = true
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hex = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+sha2 = "0.10"
+base64 = "0.22.1"
+wasm-bindgen = { version = "0.2.100", features = ["serde-serialize"] }
+serde-wasm-bindgen = "0.6.5"
 
 # Workspace specific dependencies
 rayon = { version = "1.8", optional = true }
