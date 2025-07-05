@@ -1,0 +1,75 @@
+name: Bump and Publish
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  bump-and-publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Checkout the repository.
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Setup Rust.
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # Install toml-cli for version manipulation.
+      - name: Install toml-cli
+        run: cargo install toml-cli
+
+      # Get current version and increment patch.
+      - name: Bump Version
+        run: |
+          # Get current version from Cargo.toml.
+          CURRENT_VERSION=$(toml get Cargo.toml package.version --raw)
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Split version into parts.
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          
+          # Increment patch version.
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+          echo "New version: $NEW_VERSION"
+          
+          # Update Cargo.toml with new version.
+          toml set Cargo.toml package.version "$NEW_VERSION" > Cargo.toml.tmp
+          mv Cargo.toml.tmp Cargo.toml
+          
+          # Save new version for later steps.
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+      # Commit and push the version change.
+      - name: Commit Version Bump
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          git add Cargo.toml
+          # Add Cargo.lock if it exists (some libraries don't commit it).
+          if [[ -f "Cargo.lock" ]]; then
+            git add Cargo.lock
+          fi
+          
+          git commit -m "chore: bump version to ${{ env.NEW_VERSION }} [skip ci]"
+          git push origin main
+
+      # Run tests.
+      - name: Run Tests
+        run: cargo test
+
+      # Publish to crates.io.
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish
