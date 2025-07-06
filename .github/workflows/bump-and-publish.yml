@@ -23,9 +23,28 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # Cache cargo tools to avoid recompiling every time
+      - name: Cache Cargo Tools
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-tools-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-tools-
+
       # Install toml-cli for version manipulation.
       - name: Install toml-cli
-        run: cargo install toml-cli
+        run: |
+          if ! command -v toml &> /dev/null; then
+            echo "toml-cli not found in cache, installing..."
+            cargo install toml-cli
+          else
+            echo "toml-cli found in cache: $(toml --version)"
+          fi
 
       # Get current version and increment patch.
       - name: Bump Version
