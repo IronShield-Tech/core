@@ -1,0 +1,39 @@
+# Rust artifacts
+/target
+/*/target
+/ironshield-*/target
+
+# WASM outputs
+/ironshield-edge/*/assets/wasm/
+/*/pkg
+/ironshield-*/pkg
+
+# Node.js dependencies
+/node_modules
+/ironshield-edge/*/node_modules
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+.pnpm-debug.log
+
+# Editor files
+.idea/
+.vscode/
+*.sublime-*
+*.swp
+*.swo
+.DS_Store
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temporary files
+*.log
+*.bak
+*.tmp
+*.backup
+*.old
