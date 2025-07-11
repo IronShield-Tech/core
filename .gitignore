@@ -8,13 +8,6 @@
 /*/pkg
 /ironshield-*/pkg
 
-# Node.js dependencies
-/node_modules
-/ironshield-edge/*/node_modules
-npm-debug.log
-yarn-error.log
-yarn-debug.log
-.pnpm-debug.log
 
 # Editor files
 .idea/
