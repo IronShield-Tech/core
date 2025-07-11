@@ -28,7 +28,7 @@ use ironshield_types::*;
 /// let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
 /// let challenge = IronShieldChallenge::new(
 ///     "test_website".to_string(),
-///     [0xFF; 32], // Easy difficulty
+///     1, // Easy difficulty
 ///     dummy_key,
 ///     [0x00; 32],
 /// );
@@ -72,10 +72,7 @@ mod tests {
         let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge: IronShieldChallenge = IronShieldChallenge::new(
             "test_website".to_string(),
-            [0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // Medium threshold
+            2, // Medium threshold
             dummy_key,
             [0x00; 32],
         );
@@ -97,7 +94,7 @@ mod tests {
         let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let easy_challenge = IronShieldChallenge::new(
             "test_website".to_string(),
-            [0xFF; 32], // Very easy
+            1, // Very easy
             dummy_key.clone(),
             [0x00; 32],
         );
@@ -114,7 +111,7 @@ mod tests {
         // Test with impossible challenge (all 0x00)
         let impossible_challenge = IronShieldChallenge::new(
             "test_website".to_string(),
-            [0x00; 32], // Impossible
+            u64::MAX, // Impossible
             dummy_key,
             [0x00; 32],
         );

@@ -25,12 +25,12 @@ mod tests {
         let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
-            [0xFF; 32], // Very high threshold - should be easy to find solution
+            1, // Very high threshold - should be easy to find solution
             dummy_key,
             [0x00; 32],
         );
         assert_eq!(challenge.website_id, "test_website");
-        assert_eq!(challenge.challenge_param, [0xFF; 32]);
+        assert_ne!(challenge.challenge_param, [0u8; 32]);
     }
 
     #[test]
@@ -38,7 +38,7 @@ mod tests {
         let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge: IronShieldChallenge = IronShieldChallenge::new(
             "test_website".to_string(),
-            [0x12; 32],
+            1000,
             dummy_key,
             [0x34; 32],
         );
@@ -106,7 +106,7 @@ mod tests {
         let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
-            [0xFF; 32], // Easy difficulty
+            1, // Easy difficulty
             dummy_key,
             [0x00; 32],
         );
@@ -133,7 +133,7 @@ mod tests {
         // Use the same parameters as the working test in solve.rs
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
-            [0xFF; 32], // Very easy difficulty - should find solution quickly
+            1, // Very easy difficulty - should find solution quickly
             dummy_key,
             [0x00; 32],
         );
@@ -161,7 +161,7 @@ mod tests {
         // Use the same parameters as the working test in solve.rs
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
-            [0xFF; 32], // Very easy difficulty - should find solution quickly
+            1, // Very easy difficulty - should find solution quickly
             dummy_key,
             [0x00; 32],
         );

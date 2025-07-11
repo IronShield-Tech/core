@@ -124,7 +124,7 @@ pub fn find_solution_single_threaded(
 /// let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
 /// let challenge = IronShieldChallenge::new(
 ///     "website".to_string(), 
-///     [0xFF; 32],  // difficulty_threshold (easy)
+///     1,  // difficulty
 ///     dummy_key,
 ///     [0x00; 32],  // public_key
 /// );
@@ -244,7 +244,7 @@ mod tests {
         let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
-            [0xFF; 32], // Maximum possible value - should find solution quickly
+            1, // Easiest difficulty
             dummy_key,
             [0x00; 32],
         );
@@ -292,7 +292,7 @@ mod tests {
         let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
-            [0xFF; 32], // Maximum possible value - should find solution quickly
+            1, // Easiest difficulty
             dummy_key,
             [0x00; 32],
         );
@@ -317,10 +317,7 @@ mod tests {
         let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
-            [0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // Medium difficulty
+            1000, // Medium difficulty
             dummy_key,
             [0x00; 32],
         );
@@ -354,10 +351,7 @@ mod tests {
         let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge = IronShieldChallenge::new(
             "test_website".to_string(),
-            [0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // ~50% probability
+            2, // ~50% probability per hash
             dummy_key,
             [0x00; 32],
         );
