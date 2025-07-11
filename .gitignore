@@ -4,7 +4,7 @@
 /ironshield-*/target
 
 # WASM outputs
-/ironshield-edge/*/assets/wasm/
+/ironshield-edge/*/wasm/
 /*/pkg
 /ironshield-*/pkg
 

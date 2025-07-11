@@ -130,7 +130,7 @@ pub fn find_solution_single_threaded(
 /// );
 /// 
 /// // JavaScript worker coordination mode
-/// let response = find_solution_multi_threaded(&challenge, None, Some(0), Some(8))?;
+/// let response = find_solution_multi_threaded(&challenge, None, Some(0), Some(8), None)?;
 /// println!("Found solution: {}", response.solution);
 /// # Ok(())
 /// # }
@@ -141,6 +141,7 @@ pub fn find_solution_multi_threaded(
     _num_threads: Option<usize>,
     start_offset: Option<usize>,
     stride: Option<usize>,
+    progress_callback: Option<&dyn Fn(u64)>,
 ) -> Result<IronShieldChallengeResponse, String> {
     
     // Pre-parse the random_nonce from hex string to bytes once
@@ -154,6 +155,7 @@ pub fn find_solution_multi_threaded(
     if let (Some(start), Some(step)) = (start_offset, stride) {
         // JavaScript worker coordination: simulate one thread of a multi-threaded system
         let mut nonce = start as i64;
+        let mut attempts_counter: u64 = 0;
         while nonce < MAX_ATTEMPTS_MULTI_THREADED {
             // Convert nonce to little-endian bytes (8 bytes for i64)
             let nonce_bytes: [u8; 8] = nonce.to_le_bytes();
@@ -174,6 +176,15 @@ pub fn find_solution_multi_threaded(
                 ));
             }
             
+            // Progress reporting
+            attempts_counter += 1;
+            if attempts_counter == 200_000 {
+                if let Some(callback) = progress_callback {
+                    callback(attempts_counter);
+                }
+                attempts_counter = 0; // Reset counter
+            }
+
             // Move to next nonce using stride pattern
             nonce += step as i64;
         }
@@ -185,6 +196,7 @@ pub fn find_solution_multi_threaded(
     // Fallback to single-threaded mode when no coordination parameters provided
     // This ensures compatibility when called without worker coordination
     let mut nonce = 0i64;
+    let mut attempts_counter: u64 = 0;
     while nonce < MAX_ATTEMPTS_MULTI_THREADED {
         // Convert nonce to little-endian bytes (8 bytes for i64)
         let nonce_bytes: [u8; 8] = nonce.to_le_bytes();
@@ -205,6 +217,15 @@ pub fn find_solution_multi_threaded(
             ));
         }
         
+        // Progress reporting
+        attempts_counter += 1;
+        if attempts_counter == 200_000 {
+            if let Some(callback) = progress_callback {
+                callback(attempts_counter);
+            }
+            attempts_counter = 0; // Reset counter
+        }
+
         // Move to next nonce
         nonce += 1;
     }
@@ -276,7 +297,7 @@ mod tests {
             [0x00; 32],
         );
         
-        let result = find_solution_multi_threaded(&challenge, None, None, None);
+        let result = find_solution_multi_threaded(&challenge, None, None, None, None);
         assert!(result.is_ok(), "Should find solution for easy challenge");
         
         let response = result.unwrap();
@@ -309,7 +330,7 @@ mod tests {
         assert!(single_result.is_ok(), "Single-threaded should find solution");
         
         // Solve with multi-threaded version
-        let multi_result = find_solution_multi_threaded(&challenge, None, None, None);
+        let multi_result = find_solution_multi_threaded(&challenge, None, None, None, None);
         assert!(multi_result.is_ok(), "Multi-threaded should find solution");
         
         let single_response = single_result.unwrap();
@@ -342,7 +363,7 @@ mod tests {
         );
         
         // Should find a solution relatively quickly with 50% probability per attempt
-        let result = find_solution_multi_threaded(&challenge, None, None, None);
+        let result = find_solution_multi_threaded(&challenge, None, None, None, None);
         assert!(result.is_ok(), "Should find solution for medium difficulty challenge");
         
         let response = result.unwrap();
