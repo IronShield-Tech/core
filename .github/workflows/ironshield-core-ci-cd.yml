@@ -68,7 +68,7 @@ jobs:
         run: cargo generate-lockfile
 
       - name: Cargo test all features
-        run: cargo test --locked --all-features --all-targets
+        run: cargo test --all-features --all-targets
         
       - name: Cache Cargo dependencies
         uses: Swatinem/rust-cache@v2
