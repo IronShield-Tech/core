@@ -4,7 +4,6 @@
 //! the proof-of-work requirements for IronShieldChallenge struct-based challenges.
 
 use hex;
-#[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
 use sha2::{Digest, Sha256};
 use ironshield_types::*;
 
@@ -333,7 +332,7 @@ mod tests {
     }
     
     #[test]
-    #[cfg(feature = "parallel")]
+    #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
     fn test_find_solution_multi_threaded_deterministic_correctness() {
         // Test that the multi-threaded function produces correct results
         // by testing with a known challenge where we can predict the solution range
