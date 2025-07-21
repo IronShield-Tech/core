@@ -121,7 +121,7 @@ pub fn find_solution_single_threaded(
 /// );
 /// 
 /// // JavaScript worker coordination mode
-/// let response = find_solution_multi_threaded(&challenge, None, Some(0), Some(8), None)?;
+/// let response = find_solution_multi_threaded(&challenge, Some(0), Some(8), None)?;
 /// println!("Found solution: {}", response.solution);
 /// # Ok(())
 /// # }
