@@ -1,18 +1,20 @@
 //! Proof-of-work solving functions for IronShield challenges.
 //! 
 //! This module contains functions for finding valid nonces that satisfy
-//! the proof-of-work requirements for both legacy string-based challenges
-//! and the new IronShieldChallenge struct-based challenges.
+//! the proof-of-work requirements for IronShieldChallenge struct-based challenges.
 
 use hex;
 #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
 use sha2::{Digest, Sha256};
 use ironshield_types::*;
 
-// Legacy constants removed - use single_threaded and multi_threaded functions instead
-const MAX_ATTEMPTS_SINGLE_THREADED: i64 = 100_000_000; // Maximum number of nonce values to try in the new algorithm before giving up.
+// Interval of how often hashing progress is reported to the callback.
+const PROGRESS_REPORTING_INTERVAL: u64 = 200_000;
 
-// Optimized constants for multi-threaded PoW - thread-stride approach
+// Maximum number of nonce values to try in the single-threaded algorithm before giving up.
+const MAX_ATTEMPTS_SINGLE_THREADED: i64 = 100_000_000;
+
+// Maximum number of nonce values to try in the multi-threaded algorithm before giving up.
 #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
 const MAX_ATTEMPTS_MULTI_THREADED: i64 = 1_000_000_000; // Higher limit for parallel execution
 
@@ -84,27 +86,16 @@ pub fn find_solution_single_threaded(
 /// Find a solution for the given IronShieldChallenge using optimized multi-threaded computation.
 /// 
 /// This function implements a highly optimized proof-of-work algorithm using a thread-stride
-/// approach coordinated at the JavaScript worker level for maximum reliability and performance.
+/// approach delegated to multiple threads (eg. Web Workers or Tokio tasks) for maximum performance.
+/// The lack of chunking of nonces between threads dramatically increases performance since threads
+/// don't have to constantly communicate and distriubte work. Each thread is mathematically guarnateed 
+/// to not check overlapping nonces with other threads. 
 /// 
 /// ## Algorithm:
 /// 1. Pre-computes the random_nonce bytes once to avoid repeated hex decoding
-/// 2. Uses JavaScript worker coordination with start_offset/stride for thread-stride distribution
-/// 3. Each worker simulates one thread of the optimal thread-stride pattern
-/// 4. Provides perfect load balancing without WASM threading complications
-/// 5. Returns immediately when a solution is found
-/// 
-/// ## Optimization Strategy:
-/// - **Perfect Load Balancing**: Thread-stride ensures equal work distribution
-/// - **Zero Coordination Overhead**: No complex synchronization needed
-/// - **WASM Reliability**: Avoids problematic WASM threading entirely
-/// - **Cache Efficiency**: Workers access sequential nonce ranges
-/// - **JavaScript Worker Control**: Parallelization handled reliably at JS level
-/// 
-/// ## Performance Characteristics:
-/// - **Single-core performance**: Identical to single-threaded when no coordination
-/// - **Multi-worker scaling**: Near-linear scaling up to available CPU cores
-/// - **Memory usage**: Minimal per-worker overhead
-/// - **WASM compatibility**: 100% reliable, no threading issues
+/// 2. Assigns each thread a start_offset and stride
+/// 3. Each thread performs the single-threaded algorithm with a stride and offset
+/// 4. Returns immediately when a solution is found
 /// 
 /// # Arguments
 /// * `challenge` - The IronShieldChallenge struct containing random_nonce and challenge_param
@@ -151,10 +142,10 @@ pub fn find_solution_multi_threaded(
     // Get the target threshold reference
     let target_threshold: &[u8; 32] = &challenge.challenge_param;
     
-    // Handle JavaScript worker coordination mode
+    // Handle multi-threaded mode
     if let (Some(start), Some(step)) = (start_offset, stride) {
-        // JavaScript worker coordination: simulate one thread of a multi-threaded system
-        let mut nonce = start as i64;
+        // Perform the single threaded algorithm on each thread with a stride and offset
+        let mut nonce: i64 = start as i64;
         let mut attempts_counter: u64 = 0;
         while nonce < MAX_ATTEMPTS_MULTI_THREADED {
             // Convert nonce to little-endian bytes (8 bytes for i64)
@@ -176,9 +167,9 @@ pub fn find_solution_multi_threaded(
                 ));
             }
             
-            // Progress reporting
+            // Progress reporting after each number of attempts equal to the reporting interval
             attempts_counter += 1;
-            if attempts_counter == 200_000 {
+            if attempts_counter == PROGRESS_REPORTING_INTERVAL {
                 if let Some(callback) = progress_callback {
                     callback(attempts_counter);
                 }
@@ -190,7 +181,7 @@ pub fn find_solution_multi_threaded(
         }
         
         // No solution found within attempt limit
-        return Err(format!("Could not find solution within {} attempts using JavaScript worker coordination", MAX_ATTEMPTS_MULTI_THREADED));
+        return Err(format!("Could not find solution within {} attempts using multi-threaded hashing", MAX_ATTEMPTS_MULTI_THREADED));
     }
     
     // Fallback to single-threaded mode when no coordination parameters provided
@@ -217,9 +208,9 @@ pub fn find_solution_multi_threaded(
             ));
         }
         
-        // Progress reporting
+        // Progress reporting after each number of attempts equal to the reporting interval
         attempts_counter += 1;
-        if attempts_counter == 200_000 {
+        if attempts_counter == PROGRESS_REPORTING_INTERVAL {
             if let Some(callback) = progress_callback {
                 callback(attempts_counter);
             }

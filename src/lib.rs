@@ -57,8 +57,8 @@ mod tests {
     #[test]
     fn test_recommended_attempts() {
         // Test the new recommended_attempts function
-        assert_eq!(IronShieldChallenge::recommended_attempts(1000), 3000);
-        assert_eq!(IronShieldChallenge::recommended_attempts(50000), 150000);
+        assert_eq!(IronShieldChallenge::recommended_attempts(1000), 2000);
+        assert_eq!(IronShieldChallenge::recommended_attempts(50000), 100000);
         assert_eq!(IronShieldChallenge::recommended_attempts(0), 0);
         
         // Test overflow protection
