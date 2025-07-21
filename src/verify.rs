@@ -37,11 +37,11 @@ use ironshield_types::*;
 /// assert!(verify_ironshield_solution(&response));
 /// ```
 pub fn verify_ironshield_solution(response: &IronShieldChallengeResponse) -> bool {
-    let challenge = &response.solved_challenge;
-    let nonce = response.solution;
+    let challenge: &IronShieldChallenge = &response.solved_challenge;
+    let nonce: i64 = response.solution;
     
     // Parse the random_nonce from hex string to bytes
-    let random_nonce_bytes = match hex::decode(&challenge.random_nonce) {
+    let random_nonce_bytes: Vec<u8> = match hex::decode(&challenge.random_nonce) {
         Ok(bytes) => bytes,
         Err(_) => return false, // Invalid hex string
     };

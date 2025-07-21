@@ -129,7 +129,6 @@ pub fn find_solution_single_threaded(
 #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
 pub fn find_solution_multi_threaded(
     challenge: &IronShieldChallenge,
-    _num_threads: Option<usize>,
     start_offset: Option<usize>,
     stride: Option<usize>,
     progress_callback: Option<&dyn Fn(u64)>,
@@ -142,10 +141,9 @@ pub fn find_solution_multi_threaded(
     // Get the target threshold reference
     let target_threshold: &[u8; 32] = &challenge.challenge_param;
     
-    // Handle multi-threaded mode
-    if let (Some(start), Some(step)) = (start_offset, stride) {
-        // Perform the single threaded algorithm on each thread with a stride and offset
-        let mut nonce: i64 = start as i64;
+    // Perform multithreaded hashing if an offset and stride are provided
+    if let (Some(start_offset), Some(stride)) = (start_offset, stride) {
+        let mut nonce: i64 = start_offset as i64;
         let mut attempts_counter: u64 = 0;
         while nonce < MAX_ATTEMPTS_MULTI_THREADED {
             // Convert nonce to little-endian bytes (8 bytes for i64)
@@ -177,7 +175,7 @@ pub fn find_solution_multi_threaded(
             }
 
             // Move to next nonce using stride pattern
-            nonce += step as i64;
+            nonce += stride as i64;
         }
         
         // No solution found within attempt limit
@@ -288,7 +286,7 @@ mod tests {
             [0x00; 32],
         );
         
-        let result = find_solution_multi_threaded(&challenge, None, None, None, None);
+        let result = find_solution_multi_threaded(&challenge, None, None, None);
         assert!(result.is_ok(), "Should find solution for easy challenge");
         
         let response = result.unwrap();
@@ -318,7 +316,7 @@ mod tests {
         assert!(single_result.is_ok(), "Single-threaded should find solution");
         
         // Solve with multi-threaded version
-        let multi_result = find_solution_multi_threaded(&challenge, None, None, None, None);
+        let multi_result = find_solution_multi_threaded(&challenge, None, None, None);
         assert!(multi_result.is_ok(), "Multi-threaded should find solution");
         
         let single_response = single_result.unwrap();
@@ -348,7 +346,7 @@ mod tests {
         );
         
         // Should find a solution relatively quickly with 50% probability per attempt
-        let result = find_solution_multi_threaded(&challenge, None, None, None, None);
+        let result = find_solution_multi_threaded(&challenge, None, None, None);
         assert!(result.is_ok(), "Should find solution for medium difficulty challenge");
         
         let response = result.unwrap();
