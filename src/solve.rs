@@ -190,12 +190,13 @@ pub fn find_solution_multi_threaded(
 
     let target_threshold: &[u8; 32] = &challenge.challenge_param;
 
-    let (start_nonce, nonce_increment, mode_description) =
+    // Set the start nonce and nonce increment based on the start_offset and stride.
+    let (start_nonce, nonce_increment) =
         if let (Some(start), Some(step)) = (start_offset, stride) {
-        (start as i64, step as i64, "multi-threaded hashing") // JavaScript worker coordination mode.
-    } else {
-        (0i64, 1i64, "single-threaded fallback")              // Single-threaded fallback mode.
-    };
+            (start as i64, step as i64)
+        } else {
+            (0i64, 1i64) // Single-threaded fallback
+        };
 
     execute_proof_of_work(
         &random_nonce_bytes,
@@ -206,8 +207,7 @@ pub fn find_solution_multi_threaded(
         progress_callback,
         challenge,
     ).map_err(|_| {
-        format!("Could not find solution within {} attempts using {}",
-                config.max_attempts, mode_description)
+        format!("Could not find solution within {} attempts", config.max_attempts)
     })
 }
 
@@ -289,12 +289,12 @@ fn execute_proof_of_work(
 /// * `increment`: The amount to add (must be positive).
 #[inline]
 fn increment_le_bytes(bytes: &mut [u8; 8], increment: u64) {
-    let mut carry = increment;
+    let mut carry: u64 = increment;
     for byte in bytes.iter_mut() {
         if carry == 0 {
             break;
         }
-        let sum = *byte as u64 + carry;
+        let sum: u64 = *byte as u64 + carry;
         *byte   = sum as u8;
         carry   = sum >> 8;
     }
