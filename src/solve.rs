@@ -249,20 +249,23 @@ fn execute_proof_of_work(
     let mut attempts_counter: u64 = 0;
 
     while nonce < config.max_attempts {
+        // Hash the random nonce and nonce bytes
         let mut hasher = Sha256::new();
         hasher.update(random_nonce_bytes);
         hasher.update(&nonce_bytes);
         let hash_result = hasher.finalize();
-
         let hash_bytes: [u8; 32] = hash_result.into();
-        if hash_bytes < *target_threshold {                        // Upon finding a valid solution:
-            let final_nonce = le_bytes_to_i64(&nonce_bytes);       // Convert bytes back to i64.
+
+        // Upon finding a valid solution convert bytes back to i64 and return the solution
+        if hash_bytes < *target_threshold {
+            let final_nonce: i64 = le_bytes_to_i64(&nonce_bytes);
             return Ok(IronShieldChallengeResponse::new(
-                challenge.clone(),                                 // Then pass the complete challenge,
-                final_nonce,                                       // along with the successful nonce.
+                challenge.clone(),
+                final_nonce,
             ));
         }
 
+        // Increment the attempts counter and report progress if a callback is provided
         attempts_counter += 1;
         if attempts_counter == config.progress_reporting_interval {
             if let Some(callback) = progress_callback {
