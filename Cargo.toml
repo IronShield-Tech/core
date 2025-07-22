@@ -1,6 +1,6 @@
 [package]
 name = "ironshield-core"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2021"
 authors = [ "IronShield Developers <software@ironshield.cloud>" ]
 description = "Enterprise-Grade Edge-Native Scraping & L7 DDoS Firewall with Stateless PoW, Bot Fingerprinting, and Origin-Shielding"
