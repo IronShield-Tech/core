@@ -59,11 +59,8 @@ pub fn verify_ironshield_solution(response: &IronShieldChallengeResponse) -> boo
     hasher.update(&nonce_bytes);         // Second part of the input
     let hash_result = hasher.finalize();
 
-    // Convert hash to [u8; 32] for comparison
-    let hash_bytes: [u8; 32] = hash_result.into();
-
     // Compare with the challenge parameter
-    hash_bytes < challenge.challenge_param
+    hash_result.as_slice() < &challenge.challenge_param
 }
 
 #[cfg(test)]
