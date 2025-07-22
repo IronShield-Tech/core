@@ -243,21 +243,23 @@ fn execute_proof_of_work(
     progress_callback:  Option<&dyn Fn(u64)>,
     challenge:          &IronShieldChallenge,
 ) -> Result<IronShieldChallengeResponse, String> {
-    let mut      nonce_bytes: [u8; 8] = start_nonce.to_le_bytes(); // Convert at head.
-    let     increment_amount = nonce_increment as u64;
-    let mut            nonce = start_nonce;
+    let mut      nonce_bytes: [u8; 8] = start_nonce.to_le_bytes();
+    let     increment_amount: u64 = nonce_increment as u64;
+    let mut            nonce: i64 = start_nonce;
     let mut attempts_counter: u64 = 0;
+
+    // Pre-compute the hash of the random nonce
+    let mut base_hasher: Sha256 = Sha256::new();
+    base_hasher.update(random_nonce_bytes);
 
     while nonce < config.max_attempts {
         // Hash the random nonce and nonce bytes
-        let mut hasher = Sha256::new();
-        hasher.update(random_nonce_bytes);
+        let mut hasher = base_hasher.clone();
         hasher.update(&nonce_bytes);
         let hash_result = hasher.finalize();
-        let hash_bytes: [u8; 32] = hash_result.into();
 
         // Upon finding a valid solution convert bytes back to i64 and return the solution
-        if hash_bytes < *target_threshold {
+        if hash_result.as_slice() < target_threshold {
             let final_nonce: i64 = le_bytes_to_i64(&nonce_bytes);
             return Ok(IronShieldChallengeResponse::new(
                 challenge.clone(),
