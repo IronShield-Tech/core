@@ -10,6 +10,7 @@ mod verify;
 
 // Re-export public functions from modules
 pub use solve::find_solution_single_threaded;
+pub use solve::PoWConfig;
 
 #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
 pub use solve::find_solution_multi_threaded;
