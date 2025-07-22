@@ -1,5 +1,5 @@
 //! # Core functionality for the IronShield proof-of-work system.
-//! 
+//!
 //! This module contains shared code that can be used in both
 //! the server-side (Cloudflare Workers) and client-side (WASM) implementations
 
@@ -42,11 +42,11 @@ mod tests {
             dummy_key,
             [0x34; 32],
         );
-        
+
         // Test serialization
         let serialized = serde_json::to_string(&challenge).unwrap();
         assert!(!serialized.is_empty());
-        
+
         // Test deserialization
         let deserialized: IronShieldChallenge = serde_json::from_str(&serialized).unwrap();
         assert_eq!(deserialized.challenge_param, challenge.challenge_param);
@@ -60,7 +60,7 @@ mod tests {
         assert_eq!(IronShieldChallenge::recommended_attempts(1000), 2000);
         assert_eq!(IronShieldChallenge::recommended_attempts(50000), 100000);
         assert_eq!(IronShieldChallenge::recommended_attempts(0), 0);
-        
+
         // Test overflow protection
         assert_eq!(IronShieldChallenge::recommended_attempts(u64::MAX), u64::MAX);
     }
@@ -68,32 +68,32 @@ mod tests {
     #[test]
     fn test_difficulty_to_challenge_param() {
         // Test that our difficulty conversion works correctly
-        
+
         // Very easy case
         let challenge_param = IronShieldChallenge::difficulty_to_challenge_param(1);
         assert_eq!(challenge_param, [0xFF; 32]);
-        
+
         // Test zero difficulty panics
         let result = std::panic::catch_unwind(|| {
             IronShieldChallenge::difficulty_to_challenge_param(0);
         });
         assert!(result.is_err(), "Zero difficulty should panic");
-        
+
         // Test some practical values produce valid outputs
         let challenge_param_256 = IronShieldChallenge::difficulty_to_challenge_param(256);
         assert_ne!(challenge_param_256, [0; 32]);
         assert_ne!(challenge_param_256, [0xFF; 32]);
-        
+
         let challenge_param_1024 = IronShieldChallenge::difficulty_to_challenge_param(1024);
         assert_ne!(challenge_param_1024, [0; 32]);
         assert_ne!(challenge_param_1024, [0xFF; 32]);
-        
+
         // Test very high difficulty - this produces a very small target, not all zeros
         let challenge_param_max = IronShieldChallenge::difficulty_to_challenge_param(u64::MAX);
         // For max difficulty, the target should be very small but not necessarily all zeros
         // since the function uses bit manipulation logic
         assert_ne!(challenge_param_max, [0xFF; 32], "Maximum difficulty should not produce all FFs");
-        
+
         // Test that the function produces consistent results
         let challenge_param_test = IronShieldChallenge::difficulty_to_challenge_param(1000);
         let challenge_param_test2 = IronShieldChallenge::difficulty_to_challenge_param(1000);
@@ -112,15 +112,15 @@ mod tests {
         );
 
         // Solve the challenge
-        let result = find_solution_single_threaded(&challenge);
+        let result = find_solution_single_threaded(&challenge, None);
         assert!(result.is_ok(), "Should find solution for integration test");
 
         let response = result.unwrap();
-        
+
         // Verify the solution using the IronShield verification
         assert!(verify_ironshield_solution(&response),
                 "IronShield verification should confirm the solution is valid");
-        
+
         // Verify response structure
         assert_eq!(response.solved_challenge.challenge_signature, challenge.challenge_signature);
         assert!(response.solution >= 0, "Solution should be non-negative");
@@ -139,15 +139,15 @@ mod tests {
         );
 
         // Solve the challenge
-        let result = find_solution_single_threaded(&challenge);
+        let result = find_solution_single_threaded(&challenge, None);
         assert!(result.is_ok(), "Should find solution for IronShield integration test");
 
         let response = result.unwrap();
-        
+
         // Verify the solution
         assert!(verify_ironshield_solution(&response),
                 "IronShield verification should confirm the solution is valid");
-        
+
         // Verify response structure
         assert_eq!(response.solved_challenge.challenge_signature, challenge.challenge_signature);
         assert!(response.solution >= 0, "Solution should be non-negative");
@@ -167,15 +167,15 @@ mod tests {
         );
 
         // Solve the challenge using multi-threaded version
-        let result = find_solution_multi_threaded(&challenge, None, None, None);
+        let result = find_solution_multi_threaded(&challenge, None, None, None, None);
         assert!(result.is_ok(), "Should find solution for IronShield multi-threaded integration test");
 
         let response = result.unwrap();
-        
+
         // Verify the solution
         assert!(verify_ironshield_solution(&response),
                 "IronShield multi-threaded verification should confirm the solution is valid");
-        
+
         // Verify response structure
         assert_eq!(response.solved_challenge.challenge_signature, challenge.challenge_signature);
         assert!(response.solution >= 0, "Solution should be non-negative");
