@@ -183,7 +183,7 @@ pub fn find_solution_multi_threaded(
     stride:            Option<usize>,
     progress_callback: Option<&dyn Fn(u64)>,
 ) -> Result<IronShieldChallengeResponse, String> {
-    let config = config.unwrap_or_else(PoWConfig::multi_threaded);
+    let config: PoWConfig = config.unwrap_or_else(PoWConfig::multi_threaded);
 
     let random_nonce_bytes: Vec<u8> = hex::decode(&challenge.random_nonce)
         .map_err(|e: hex::FromHexError| format!("Failed to decode random_nonce hex: {}", e))?;
