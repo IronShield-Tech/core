@@ -15,11 +15,12 @@ use ironshield_types::*;
 /// the response and verifies that the solution is valid for the challenge.
 ///
 /// # Arguments
-/// * `response` - The IronShieldChallengeResponse containing both the challenge and solution
+/// * `response`: The IronShieldChallengeResponse containing both the challenge and solution
 ///
 /// # Returns
-/// * `true` if the solution produces a hash less than the challenge_param
-/// * `false` if the solution is invalid or doesn't meet the requirement
+/// * `bool`: `true` if the solution produces a hash less than
+///           the `challenge_param`, `false` if the solution
+///           is invalid or doesn't meet the requirements.
 ///
 /// # Example
 /// ```
@@ -38,7 +39,7 @@ use ironshield_types::*;
 /// ```
 pub fn verify_ironshield_solution(response: &IronShieldChallengeResponse) -> bool {
     let challenge: &IronShieldChallenge = &response.solved_challenge;
-    let nonce: i64 = response.solution;
+    let     nonce: i64 = response.solution;
 
     // Parse the random_nonce from hex string to bytes
     let random_nonce_bytes: Vec<u8> = match hex::decode(&challenge.random_nonce) {
