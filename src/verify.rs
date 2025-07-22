@@ -8,14 +8,17 @@ use hex;
 use sha2::{Digest, Sha256};
 use ironshield_types::*;
 
-/// Verify that an IronShieldChallengeResponse contains a valid solution.
+/// Verify that an `IronShieldChallengeResponse` contains
+/// a valid solution.
 ///
-/// This function uses the same optimized hashing approach as find_solution_single_threaded
-/// to ensure consistency and performance. It extracts the challenge and solution from
-/// the response and verifies that the solution is valid for the challenge.
+/// This function uses the same optimized hashing approach
+/// as `find_solution_single_threaded`. It extracts the
+/// challenge and solution from the response and verifies
+/// that the solution is valid for the challenge.
 ///
 /// # Arguments
-/// * `response`: The IronShieldChallengeResponse containing both the challenge and solution
+/// * `response`: The `IronShieldChallengeResponse` containing
+///               both the challenge and solution
 ///
 /// # Returns
 /// * `bool`: `true` if the solution produces a hash less than
