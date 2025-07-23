@@ -244,9 +244,9 @@ fn execute_proof_of_work(
     challenge:          &IronShieldChallenge,
 ) -> Result<IronShieldChallengeResponse, String> {
     let mut      nonce_bytes: [u8; 8] = start_nonce.to_le_bytes();
-    let     increment_amount: u64 = nonce_increment as u64;
-    let mut            nonce: i64 = start_nonce;
-    let mut attempts_counter: u64 = 0;
+    let     increment_amount:     u64 = nonce_increment as u64;
+    let mut            nonce:     i64 = start_nonce;
+    let mut attempts_counter:     u64 = 0;
 
     // Pre-compute the hash of the random nonce
     let mut base_hasher: Sha256 = Sha256::new();
