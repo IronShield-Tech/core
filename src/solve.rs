@@ -185,11 +185,6 @@ pub fn find_solution_multi_threaded(
 ) -> Result<IronShieldChallengeResponse, String> {
     let config: PoWConfig = config.unwrap_or_else(PoWConfig::multi_threaded);
 
-    let random_nonce_bytes: Vec<u8> = hex::decode(&challenge.random_nonce)
-        .map_err(|e: hex::FromHexError| format!("Failed to decode random_nonce hex: {}", e))?;
-
-    let target_threshold: &[u8; 32] = &challenge.challenge_param;
-
     // Set the start nonce and nonce increment based on the start_offset and stride.
     let (start_nonce, nonce_increment) =
         if let (Some(start), Some(step)) = (start_offset, stride) {
@@ -199,8 +194,6 @@ pub fn find_solution_multi_threaded(
         };
 
     execute_proof_of_work(
-        &random_nonce_bytes,
-        target_threshold,
         start_nonce,
         nonce_increment,
         &config,
@@ -215,9 +208,6 @@ pub fn find_solution_multi_threaded(
 /// and single-threaded fallback modes.
 ///
 /// # Arguments
-/// * `random_nonce_bytes`: Pre-decoded hex bytes from `challenge.random_nonce`.
-/// * `target_threshold`:   Reference to `challenge.challenge_param` for
-///                         comparison.
 /// * `start_nonce`:        Starting nonce value (0 for single-threaded,
 ///                         offset for worker coordination).
 /// * `nonce_increment`:    How much to increment nonce each iteration
@@ -235,8 +225,6 @@ pub fn find_solution_multi_threaded(
 ///                                                  if no solution is found within
 ///                                                  `config.max_attempts`.
 fn execute_proof_of_work(
-    random_nonce_bytes: &[u8],
-    target_threshold:   &[u8; 32],
     start_nonce:        i64,
     nonce_increment:    i64,
     config:             &PoWConfig,
@@ -247,6 +235,11 @@ fn execute_proof_of_work(
     let     increment_amount:     u64 = nonce_increment as u64;
     let mut            nonce:     i64 = start_nonce;
     let mut attempts_counter:     u64 = 0;
+
+    // Extract the random nonce and threshold from the challenge
+    let random_nonce_bytes: Vec<u8> = hex::decode(&challenge.random_nonce)
+        .map_err(|e: hex::FromHexError| format!("Failed to decode random_nonce hex: {}", e))?;
+    let target_threshold: &[u8; 32] = &challenge.challenge_param;
 
     // Pre-compute the hash of the random nonce
     let mut base_hasher: Sha256 = Sha256::new();
@@ -503,7 +496,6 @@ mod tests {
     #[test]
     fn test_execute_proof_of_work_single_threaded_mode() {
         // Test the internal function with single-threaded parameters.
-        let random_nonce_bytes = hex::decode("deadbeef").unwrap();
         let target_threshold = [0xFF; 32]; // Very easy threshold.
         let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge = IronShieldChallenge::new(
@@ -514,8 +506,6 @@ mod tests {
         );
 
         let result = execute_proof_of_work(
-            &random_nonce_bytes,
-            &target_threshold,
             0, // start_nonce
             1, // nonce_increment
             &PoWConfig::default(), // conf
@@ -529,7 +519,6 @@ mod tests {
     #[test]
     fn test_execute_proof_of_work_worker_coordination_mode() {
         // Test the internal function with worker coordination parameters.
-        let random_nonce_bytes = hex::decode("deadbeef").unwrap();
         let target_threshold = [0xFF; 32]; // Very easy threshold.
         let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge = IronShieldChallenge::new(
@@ -540,8 +529,6 @@ mod tests {
         );
 
         let result = execute_proof_of_work(
-            &random_nonce_bytes,
-            &target_threshold,
             5,  // start_nonce (worker offset)
             8,  // nonce_increment (worker stride)
             &PoWConfig::default(), // conf
