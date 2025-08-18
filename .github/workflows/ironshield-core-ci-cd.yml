@@ -33,10 +33,20 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - name: Run clippy action
-        uses: clechasseur/rs-clippy-check@v3
       - name: Cache Cargo dependencies
         uses: Swatinem/rust-cache@v2
+      
+      # Strip path dependencies for CI (use only version dependencies)
+      - name: Prepare Cargo.toml for CI
+        shell: bash
+        run: |
+          # Remove path dependencies, keeping only version dependencies
+          sed -i 's/, path = "[^"]*"//g' Cargo.toml
+          echo "Modified Cargo.toml for CI:"
+          cat Cargo.toml
+      
+      - name: Run clippy action
+        uses: clechasseur/rs-clippy-check@v3
   doc:
     # run docs generation on nightly rather than stable. This enables features like
     # https://doc.rust-lang.org/beta/unstable-book/language-features/doc-cfg.html which allows an
@@ -47,6 +57,18 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Rust nightly
         uses: dtolnay/rust-toolchain@nightly
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+      
+      # Strip path dependencies for CI (use only version dependencies)
+      - name: Prepare Cargo.toml for CI
+        shell: bash
+        run: |
+          # Remove path dependencies, keeping only version dependencies
+          sed -i 's/, path = "[^"]*"//g' Cargo.toml
+          echo "Modified Cargo.toml for CI:"
+          cat Cargo.toml
+      
       - name: Run cargo doc
         run: cargo doc --no-deps --all-features
         env:
@@ -62,113 +84,120 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+      
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2
 
-      - name: Generate lockfile
-        if: hashFiles('Cargo.lock') == ''
-        run: cargo generate-lockfile
+        # Strip path dependencies for CI (use only version dependencies)
+      - name: Prepare Cargo.toml for CI
+        shell: bash
+        run: |
+          # Remove path dependencies, keeping only version dependencies
+          if [[ "$OSTYPE" == "darwin"* ]]; then
+            # macOS (BSD sed) requires empty extension parameter
+            sed -i '' 's/, path = "[^"]*"//g' Cargo.toml
+          else
+            # Linux (GNU sed) uses different syntax
+            sed -i 's/, path = "[^"]*"//g' Cargo.toml
+          fi
+          echo "Modified Cargo.toml for CI:"
+          cat Cargo.toml
 
       - name: Cargo test all features
-        run: cargo test --locked --all-features --all-targets
+        run: cargo test --all-features --all-targets
         
       - name: Cache Cargo dependencies
         uses: Swatinem/rust-cache@v2
 
   bump-and-publish:
-    # Only bump and publish on changes to main branch
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    needs: [clippy, doc, test]  # Wait for CI to pass before publishing
-    
-    steps:
-      # Checkout the repository.
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+   # Only bump and publish on changes to main branch
+   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+   runs-on: ubuntu-latest
+   needs: [clippy, doc, test]  # Wait for CI to pass before publishing
+   
+   steps:
+     # Checkout the repository.
+     - name: Checkout
+       uses: actions/checkout@v4
+       with:
+         token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Setup Rust.
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+     # Setup Rust.
+     - name: Setup Rust
+       uses: dtolnay/rust-toolchain@stable
 
-      # Cache cargo tools to avoid recompiling every time
-      - name: Cache Cargo Tools
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-tools-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-tools-
+     # Cache Rust dependencies and compilation artifacts
+     - name: Cache Rust Dependencies
+       uses: Swatinem/rust-cache@v2
 
-      # Install toml-cli for version manipulation.
-      - name: Install toml-cli
-        run: |
-          if ! command -v toml &> /dev/null; then
-            echo "toml-cli not found in cache, installing..."
-            cargo install toml-cli
-          else
-            echo "toml-cli found in cache: $(toml --version)"
-          fi
+     # Cache cargo tools separately since they don't change often
+     - name: Cache Cargo Tools
+       uses: actions/cache@v4
+       with:
+         path: ~/.cargo/bin/
+         key: ${{ runner.os }}-cargo-tools-toml-cli
+         restore-keys: |
+           ${{ runner.os }}-cargo-tools-
 
-      # Get current version and increment patch.
-      - name: Bump Version
-        run: |
-          # Get current version from Cargo.toml.
-          CURRENT_VERSION=$(toml get Cargo.toml package.version --raw)
-          echo "Current version: $CURRENT_VERSION"
-          
-          # Split version into parts.
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-          
-          # Increment patch version.
-          NEW_PATCH=$((PATCH + 1))
-          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
-          echo "New version: $NEW_VERSION"
-          
-          # Update Cargo.toml with new version.
-          toml set Cargo.toml package.version "$NEW_VERSION" > Cargo.toml.tmp
-          mv Cargo.toml.tmp Cargo.toml
-          
-          # Save new version for later steps.
-          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+     # Install toml-cli for version manipulation.
+     - name: Install toml-cli
+       run: |
+         if ! command -v toml &> /dev/null; then
+           echo "toml-cli not found in cache, installing..."
+           cargo install toml-cli
+         else
+           echo "toml-cli found in cache: $(toml --version)"
+         fi
 
-      # Commit and push the version change.
-      - name: Commit Version Bump
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-          
-          git add Cargo.toml
-          # Add Cargo.lock if it exists (some libraries don't commit it).
-          if [[ -f "Cargo.lock" ]]; then
-            git add Cargo.lock
-          fi
-          
-          git commit -m "chore: bump version to ${{ env.NEW_VERSION }} [skip ci]"
-          git push origin main
+     # Get current version and increment patch.
+     - name: Bump Version
+       run: |
+         # Get current version from Cargo.toml.
+         CURRENT_VERSION=$(toml get Cargo.toml package.version --raw)
+         echo "Current version: $CURRENT_VERSION"
+         
+         # Split version into parts.
+         IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+         
+         # Increment patch version.
+         NEW_PATCH=$((PATCH + 1))
+         NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+         echo "New version: $NEW_VERSION"
+         
+         # Update Cargo.toml with new version.
+         toml set Cargo.toml package.version "$NEW_VERSION" > Cargo.toml.tmp
+         mv Cargo.toml.tmp Cargo.toml
+         
+         # Save new version for later steps.
+         echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
-      # Publish to crates.io.
-      - name: Publish
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish
-      
-      # Create GitHub Release after successful publish
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ env.NEW_VERSION }}
-          name: Release v${{ env.NEW_VERSION }}
-          body: |
-            ## ironshield-core v${{ env.NEW_VERSION }}
-            
-            📦 **Install**: `cargo add ironshield-core@${{ env.NEW_VERSION }}`  
-            🔗 **Crates.io**: https://crates.io/crates/ironshield-core/${{ env.NEW_VERSION }}
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+     # Commit and push the version change.
+     - name: Commit Version Bump
+       run: |
+         git config user.name 'github-actions[bot]'
+         git config user.email 'github-actions[bot]@users.noreply.github.com'
+         
+         git add Cargo.toml
+         git commit -m "chore: bump version to ${{ env.NEW_VERSION }} [skip ci]"
+         git push origin main
+
+     # Create and push a tag 
+     - name: Create Git Tag
+       run: |
+         git tag "v${{ env.NEW_VERSION }}"
+         git push origin "v${{ env.NEW_VERSION }}"
+     
+     # Strip path dependencies for CI (use only version dependencies)
+     - name: Prepare Cargo.toml for CI
+       shell: bash
+       run: |
+         # Remove path dependencies, keeping only version dependencies
+         sed -i 's/, path = "[^"]*"//g' Cargo.toml
+         echo "Modified Cargo.toml for CI:"
+         cat Cargo.toml
+
+     # Publish to crates.io.
+     - name: Publish
+       env:
+         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+       run: cargo publish --allow-dirty

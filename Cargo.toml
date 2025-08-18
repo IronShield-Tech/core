@@ -11,7 +11,7 @@ keywords = ["proof-of-work", "pow", "ddos", "firewall", "crypto"]
 categories = ["cryptography", "algorithms", "concurrency"]
 
 [dependencies]
-ironshield-types = { version = "0.2" }
+ironshield-types = { version = "0.2", path = "../ironshield-types" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 hex = "0.4"
