@@ -10,7 +10,6 @@ use ironshield_types::*;
 
 const  PROGRESS_REPORTING_INTERVAL: u64 = 200_000;
 const MAX_ATTEMPTS_SINGLE_THREADED: i64 = 100_000_000;
-#[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
 const  MAX_ATTEMPTS_MULTI_THREADED: i64 = 1_000_000_000; // Higher limit for parallel execution
 
 /// Configuration parameters for proof-of-work challenges.
@@ -41,7 +40,6 @@ impl PoWConfig {
         Self::default()
     }
 
-    #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
     pub fn multi_threaded() -> Self {
         Self {
             max_attempts:                MAX_ATTEMPTS_MULTI_THREADED,
@@ -68,59 +66,6 @@ impl PoWConfig {
             progress_reporting_interval,
         }
     }
-}
-
-/// Find a solution for the given IronShieldChallenge using single-threaded computation.
-///
-/// This function implements a proof-of-work algorithm that finds a nonce value such that
-/// when concatenated with the challenge's random_nonce and hashed with SHA-256, the
-/// resulting hash (interpreted as a `[u8; 32]`) is numerically less than the challenge_param.
-///
-/// The algorithm:
-/// 1. Takes the random_nonce from the challenge (as bytes)
-/// 2. Iterates through nonce values (starting from 0)
-/// 3. For each nonce: hashes random_nonce_bytes + nonce_bytes using multiple hasher updates
-/// 4. Compares the hash `[u8; 32]` with challenge_param `[u8; 32]` using byte-wise comparison
-/// 5. Returns the first nonce where hash < challenge_param
-///
-/// # Arguments
-/// * `challenge`: The IronShieldChallenge struct containing random_nonce and challenge_param
-///
-/// # Returns
-/// * `Result<IronShieldChallengeResponse, String>`: `Ok(IronShieldChallengeResponse)`
-///                                                  that contains the successful nonce,
-///                                                  or an error (`Err(String)`) message
-///                                                  if no solution is found within
-///                                                  `config.max_attempts`.
-pub fn find_solution_single_threaded(
-    challenge: &IronShieldChallenge,
-    config:    Option<PoWConfig>,
-) -> Result<IronShieldChallengeResponse, String> {
-    let config = config.unwrap_or_else(PoWConfig::single_threaded);
-
-    let random_nonce_bytes: Vec<u8> = hex::decode(&challenge.random_nonce)
-        .map_err(|e: hex::FromHexError| format!("Failed to decode random_nonce hex: {}", e))?;
-
-    let target_threshold: &[u8; 32] = &challenge.challenge_param;
-
-    for nonce in 0..config.max_attempts {
-        let nonce_bytes: [u8; 8] = nonce.to_le_bytes();
-        let mut hasher = Sha256::new();
-
-        hasher.update(&random_nonce_bytes);             // First part of the input.
-        hasher.update(&nonce_bytes);                    // Second part of the input.
-        let hash_result = hasher.finalize();
-
-        let hash_bytes: [u8; 32] = hash_result.into();
-        if hash_bytes < *target_threshold {             // Upon finding a valid solution:
-            return Ok(IronShieldChallengeResponse::new(
-                challenge.clone(),                      // Pass the complete challenge,
-                nonce,                                  // Along with the successful nonce.
-            ));
-        }
-    }
-
-    Err(format!("Could not find solution within {} attempts", config.max_attempts))
 }
 
 /// Find a solution for the given IronShieldChallenge using optimized
@@ -156,7 +101,7 @@ pub fn find_solution_single_threaded(
 /// ```
 /// use ironshield_core::{
 ///     IronShieldChallenge,
-///     find_solution_multi_threaded,
+///     find_solution,
 ///     SigningKey
 /// };
 ///
@@ -170,13 +115,12 @@ pub fn find_solution_single_threaded(
 ///      );
 ///
 ///     // JavaScript worker coordination mode
-///     let response = find_solution_multi_threaded(&challenge, None, Some(0), Some(8), None)?;
+///     let response = find_solution(&challenge, None, Some(0), Some(8), None)?;
 ///     println!("Found solution: {}", response.solution);
 /// #   Ok(())
 /// # }
 /// ```
-#[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
-pub fn find_solution_multi_threaded(
+pub fn find_solution(
     challenge:         &IronShieldChallenge,
     config:            Option<PoWConfig>,
     start_offset:      Option<usize>,
@@ -339,42 +283,6 @@ mod tests {
     }
 
     #[test]
-    fn test_find_solution_single_threaded_easy() {
-        // Create a challenge with very high threshold (easy to solve).
-        let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
-        let challenge = IronShieldChallenge::new(
-            "test_website".to_string(),
-            1, // Easiest difficulty.
-            dummy_key,
-            [0x00; 32],
-        );
-
-        let result = find_solution_single_threaded(&challenge, None);
-        assert!(result.is_ok(), "Should find solution for easy challenge");
-
-        let response = result.unwrap();
-        assert_eq!(response.solved_challenge.challenge_signature, challenge.challenge_signature);
-        assert!(response.solution >= 0, "Solution should be non-negative");
-    }
-
-    #[test]
-    fn test_find_solution_single_threaded_custom_config() {
-        // Test with custom configuration.
-        let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
-        let challenge = IronShieldChallenge::new(
-            "test_website".to_string(),
-            1, // Easiest difficulty.
-            dummy_key,
-            [0x00; 32],
-        );
-
-        let config = PoWConfig::custom(10_000, 1_000);
-        let result = find_solution_single_threaded(&challenge, Some(config));
-        assert!(result.is_ok(), "Should find solution with custom config");
-    }
-
-
-    #[test]
     fn test_performance_optimization_correctness() {
         // This test ensures that our optimization produces the same results
         // as the original Vec-based approach would have.
@@ -403,8 +311,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
-    fn test_find_solution_multi_threaded_easy() {
+    fn test_find_solution_easy() {
         // Create a challenge with very high threshold (easy to solve).
         let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         let challenge = IronShieldChallenge::new(
@@ -414,7 +321,7 @@ mod tests {
             [0x00; 32],
         );
 
-        let result = find_solution_multi_threaded(&challenge, None, None, None, None);
+        let result = find_solution(&challenge, None, None, None, None);
         assert!(result.is_ok(), "Should find solution for easy challenge");
 
         let response = result.unwrap();
@@ -426,43 +333,9 @@ mod tests {
                 "Multi-threaded solution should pass verification");
     }
 
-    #[test]
-    #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
-    fn test_find_solution_multi_threaded_vs_single_threaded() {
-        // Test that multithreaded and single-threaded versions find valid solutions
-        // for the same challenge (solutions may differ due to search order).
-        let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
-        let challenge = IronShieldChallenge::new(
-            "test_website".to_string(),
-            1000, // Medium difficulty.
-            dummy_key,
-            [0x00; 32],
-        );
-
-        // Solve with single-threaded version.
-        let single_result = find_solution_single_threaded(&challenge, None);
-        assert!(single_result.is_ok(), "Single-threaded should find solution");
-
-        // Solve with multithreaded version.
-        let multi_result = find_solution_multi_threaded(&challenge, None, None, None, None);
-        assert!(multi_result.is_ok(), "Multi-threaded should find solution");
-
-        let single_response = single_result.unwrap();
-        let multi_response = multi_result.unwrap();
-
-        // Both solutions should be valid (but may be different nonces).
-        assert!(crate::verify::verify_ironshield_solution(&single_response),
-                "Single-threaded solution should be valid");
-        assert!(crate::verify::verify_ironshield_solution(&multi_response),
-                "Multi-threaded solution should be valid");
-
-        // Both should have the same challenge signature.
-        assert_eq!(single_response.solved_challenge.challenge_signature, multi_response.solved_challenge.challenge_signature);
-    }
 
     #[test]
-    #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
-    fn test_find_solution_multi_threaded_deterministic_correctness() {
+    fn test_find_solution_deterministic_correctness() {
         // Test that the multithreaded function produces correct results
         // by testing with a known challenge where we can predict the solution range.
         let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
@@ -474,7 +347,7 @@ mod tests {
         );
 
         // Should find a solution relatively quickly with 50% probability per attempt.
-        let result = find_solution_multi_threaded(&challenge, None, None, None, None);
+        let result = find_solution(&challenge, None, None, None, None);
         assert!(result.is_ok(), "Should find solution for medium difficulty challenge");
 
         let response = result.unwrap();

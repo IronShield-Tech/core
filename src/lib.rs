@@ -9,11 +9,9 @@ mod solve;
 mod verify;
 
 // Re-export public functions from modules
-pub use solve::find_solution_single_threaded;
 pub use solve::PoWConfig;
 
-#[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
-pub use solve::find_solution_multi_threaded;
+pub use solve::find_solution;
 
 pub use verify::verify_ironshield_solution;
 
@@ -113,7 +111,7 @@ mod tests {
         );
 
         // Solve the challenge
-        let result = find_solution_single_threaded(&challenge, None);
+        let result = find_solution(&challenge, None, None, None, None);
         assert!(result.is_ok(), "Should find solution for integration test");
 
         let response = result.unwrap();
@@ -140,7 +138,7 @@ mod tests {
         );
 
         // Solve the challenge
-        let result = find_solution_single_threaded(&challenge, None);
+        let result = find_solution(&challenge, None, None, None, None);
         assert!(result.is_ok(), "Should find solution for IronShield integration test");
 
         let response = result.unwrap();
@@ -156,7 +154,7 @@ mod tests {
 
     // Integration test for the multi-threaded IronShield algorithm
     #[test]
-    #[cfg(all(feature = "parallel", not(feature = "no-parallel")))]
+
     fn test_ironshield_multi_threaded_solve_verify_integration() {
         let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
         // Use the same parameters as the working test in solve.rs
@@ -168,7 +166,7 @@ mod tests {
         );
 
         // Solve the challenge using multi-threaded version
-        let result = find_solution_multi_threaded(&challenge, None, None, None, None);
+        let result = find_solution(&challenge, None, None, None, None);
         assert!(result.is_ok(), "Should find solution for IronShield multi-threaded integration test");
 
         let response = result.unwrap();

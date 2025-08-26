@@ -28,8 +28,3 @@ name = "ironshield_core"
 path = "src/lib.rs"
 
 [features]
-default = ["parallel"]
-# Core features
-parallel = ["rayon"] 
-# Testing features - use inverted logic
-no-parallel = []  # Disables parallel when enabled

@@ -27,7 +27,7 @@ use ironshield_types::*;
 ///
 /// # Example
 /// ```
-/// use ironshield_core::{find_solution_single_threaded, verify_ironshield_solution, IronShieldChallenge, SigningKey};
+/// use ironshield_core::{find_solution, verify_ironshield_solution, IronShieldChallenge, SigningKey};
 ///
 /// let dummy_key = SigningKey::from_bytes(&[0u8; 32]);
 /// let challenge = IronShieldChallenge::new(
@@ -37,7 +37,7 @@ use ironshield_types::*;
 ///     [0x00; 32],
 /// );
 ///
-/// let response = find_solution_single_threaded(&challenge, None).unwrap();
+/// let response = find_solution(&challenge, None, None, None, None).unwrap();
 /// assert!(verify_ironshield_solution(&response));
 /// ```
 pub fn verify_ironshield_solution(response: &IronShieldChallengeResponse) -> bool {
@@ -79,7 +79,7 @@ mod tests {
         );
 
         // Find a solution using the solver
-        let result = crate::solve::find_solution_single_threaded(&challenge, None);
+        let result = crate::solve::find_solution(&challenge, None, None, None, None);
         assert!(result.is_ok(), "Should find solution for reasonable challenge");
 
         let response = result.unwrap();
