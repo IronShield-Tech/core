@@ -18,13 +18,30 @@ hex = "0.4"
 chrono = { version = "0.4", features = ["serde"] }
 sha2 = "0.10"
 base64 = "0.22.1"
-wasm-bindgen = { version = "0.2.100", features = ["serde-serialize"] }
-serde-wasm-bindgen = "0.6.5"
 rayon = { version = "1.8", optional = true }
-rand = "0.8"
+
+# WASM-specific dependencies (optional)
+wasm-bindgen = { version = "0.2.100", features = ["serde-serialize"], optional = true }
+serde-wasm-bindgen = { version = "0.6.5", optional = true }
+js-sys = { version = "0.3", optional = true }
+web-sys = { version = "0.3", features = ["console"], optional = true }
+console_error_panic_hook = { version = "0.1", optional = true }
+getrandom = { version = "0.2", features = ["js"], optional = true }
 
 [lib]
 name = "ironshield_core"
 path = "src/lib.rs"
 
 [features]
+default = []
+wasm = [
+    "wasm-bindgen",
+    "serde-wasm-bindgen", 
+    "js-sys",
+    "web-sys",
+    "console_error_panic_hook",
+    "getrandom",
+]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(rust_analyzer)'] }
