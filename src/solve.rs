@@ -170,7 +170,7 @@ pub fn find_solution(
 ///                                                  or an error (`Err(String)`) message
 ///                                                  if no solution is found within
 ///                                                  `config.max_attempts`.
-fn execute_proof_of_work(
+pub fn execute_proof_of_work(
     start_nonce:        i64,
     nonce_increment:    i64,
     config:             &PoWConfig,

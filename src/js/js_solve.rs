@@ -144,99 +144,64 @@ pub fn console_log(s: &str) {
     web_sys::console::log_1(&JsValue::from_str(s));
 }
 
-/// JavaScript-compatible solution result for IronShield challenges
+/// Solves IronShield proof-of-work challenges using the core find_solution function.
 ///
-/// * `solution_str`:            String representation of the solution nonce
-///                              to avoid JavaScript BigInt precision issues.
-/// * `solution`:                Original numeric value for compatibility.
-/// * `challenge_signature_hex`: Challenge signature preserved from the 
-///                              original challenge.
-#[cfg(any(feature = "wasm", rust_analyzer))]
-#[derive(serde::Serialize)]
-struct IronShieldSolutionResult {
-    solution_str:            String,
-    solution:                i64,
-    challenge_signature_hex: String,
-}
-
-/// Creates a standardized IronShield solution result from core library output.
-#[cfg(any(feature = "wasm", rust_analyzer))]
-fn create_ironshield_solution_result(response: IronShieldChallengeResponse) -> IronShieldSolutionResult {
-    IronShieldSolutionResult {
-        solution_str: response.solution.to_string(),
-        solution: response.solution,
-        challenge_signature_hex: hex::encode(response.solved_challenge.challenge_signature),
-    }
-}
-
-/// Solves IronShield proof-of-work challenges using optimized multithreaded computation.
-///
-/// This function provides the fastest possible PoW solving by distributing the work
-/// across the specified number of threads with optimal load balancing and early termination.
+/// This is the main solving function that handles both single-threaded and worker coordination modes.
 ///
 /// # Arguments
 /// * `challenge_json`: JSON string containing the IronShieldChallenge
-/// * `num_threads`:    Number of threads to use (optional, defaults to available cores)
-/// * `start_offset`:   Starting nonce offset for worker coordination (optional)
-/// * `stride`:         Nonce increment stride for worker coordination (optional) 
+/// * `config_json`: Optional JSON string containing PoWConfig (null for default multi-threaded config)
+/// * `start_offset`: Optional starting nonce offset for worker coordination 
+/// * `stride`: Optional nonce increment stride for worker coordination
+/// * `progress_callback`: Optional JavaScript function for progress reporting
 ///
 /// # Returns
-/// JavaScript object with solution nonce and challenge signature, or error message.
-///
-/// # Performance
-/// - **Multi-core scaling**:      Near-linear performance improvement with thread count.
-/// - **Thread-stride algorithm**: Optimal load balancing without coordination overhead.
-/// - **Early termination**:       Stops all threads immediately when a solution is found.
-/// - **Memory efficient**:        Minimal overhead compared to a single-threaded version.
-#[cfg(all(any(feature = "wasm", rust_analyzer), any(feature = "threading", rust_analyzer)))]
+/// JavaScript object containing the IronShieldChallengeResponse or error message.
+#[cfg(any(feature = "wasm", rust_analyzer))]
 #[wasm_bindgen]
-pub fn solve_ironshield_challenge_multi_threaded(
+pub fn find_solution(
     challenge_json: &str,
+    config_json: Option<String>,
     start_offset: Option<u32>,
     stride: Option<u32>,
-    progress_callback: &js_sys::Function,
+    progress_callback: Option<js_sys::Function>,
 ) -> Result<JsValue, JsValue> {
-    // Skip panic hook installation to avoid "unreachable executed" in workers
-    // console_error_panic_hook::set_once()
-
-    console_log("🚀 [WASM] solve_ironshield_challenge_multi_threaded() called - using WORKER COORDINATION algorithm");
-
-    // Parse the challenge JSON
+    // Parse the challenge from the JSON string
     let challenge: IronShieldChallenge = serde_json::from_str(challenge_json)
         .map_err(|e: serde_json::Error| JsValue::from_str(&format!("Error parsing challenge JSON: {}", e)))?;
 
-    let start: Option<usize> = start_offset.map(|n: u32| n as usize);
-    let step: Option<usize> = stride.map(|n: u32| n as usize);
-    
-    if let (Some(start_val), Some(stride_val)) = (start, step) {
-        console_log(&format!("🎯 [WASM] JavaScript worker coordination: start={}, stride={} (checks nonce's {}, {}, {}, ...)", start_val, stride_val, start_val, start_val + stride_val, start_val + 2*stride_val));
+    // Parse the PoWConfig from the JSON string
+    let config: Option<PoWConfig> = if let Some(config_str) = config_json {
+        let parsed_config: PoWConfig = serde_json::from_str(&config_str)
+            .map_err(|e: serde_json::Error| JsValue::from_str(&format!("Error parsing config JSON: {}", e)))?;
+        Some(parsed_config)
     } else {
-        console_log("🔄 [WASM] Single-threaded fallback mode (no worker coordination)");
-    }
-
-    // Create a Rust closure that wraps the JavaScript callback function
-    let callback: js_sys::Function = progress_callback.clone();
-    let closure = move |progress: u64| {
-        // Call the JavaScript function, passing the progress value
-        let _ = callback.call1(&JsValue::NULL, &JsValue::from(progress));
+        None
     };
 
-    // Find valid nonce using JavaScript worker coordinated algorithm.
-    let response: IronShieldChallengeResponse = find_solution(
+    // Convert start_offset and stride to usize
+    let start: Option<usize> = start_offset.map(|n: u32| n as usize);
+    let step: Option<usize> = stride.map(|n: u32| n as usize);
+
+    // Create progress callback closure if provided with proper type conversions
+    let callback_closure: Option<Box<dyn Fn(u64)>> = if let Some(callback) = progress_callback {
+        Some(Box::new(move |progress: u64| {
+            let _ = callback.call1(&JsValue::NULL, &JsValue::from(progress));
+        }))
+    } else {
+        None
+    };
+
+    // Call the core find_solution function
+    let response: IronShieldChallengeResponse = crate::solve::find_solution(
         &challenge,
-        Some(PoWConfig::multi_threaded()),
-        start, 
+        config,
+        start,
         step,
-        Some(&closure)
-    ).map_err(|e: String| JsValue::from_str(&format!("Error solving IronShield challenge with worker coordination: {}", e)))?;
+        callback_closure.as_ref().map(|cb: &Box<dyn Fn(u64)>| cb.as_ref())
+    ).map_err(|e: String| JsValue::from_str(&format!("Error solving challenge: {}", e)))?;
 
-    console_log("✅ [WASM] Worker coordination solution found");
-
-    // Convert the response to a JavaScript object
-    let result: js_sys::Object = js_sys::Object::new();
-    js_sys::Reflect::set(&result, &"solution_str".into(), &response.solution.to_string().into())?;
-    js_sys::Reflect::set(&result, &"solution".into(), &JsValue::from(response.solution))?;
-    js_sys::Reflect::set(&result, &"challenge_signature_hex".into(), &hex::encode(response.solved_challenge.challenge_signature).into())?;
-
-    Ok(result.into())
+    // Return the IronShieldChallengeResponse directly 
+    serde_wasm_bindgen::to_value(&response)
+        .map_err(|e| JsValue::from_str(&format!("Error serializing response: {:?}", e)))
 }

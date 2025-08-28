@@ -14,6 +14,7 @@ pub mod js;
 // Re-export public functions from modules
 pub use solve::PoWConfig;
 pub use solve::find_solution;
+pub use solve::execute_proof_of_work;
 pub use verify::verify_ironshield_solution;
 
 #[cfg(any(feature = "wasm", rust_analyzer))]
