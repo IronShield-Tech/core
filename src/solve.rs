@@ -5,6 +5,7 @@
 
 use hex;
 use sha2::{Digest, Sha256};
+use serde::{Serialize, Deserialize};
 
 use ironshield_types::*;
 
@@ -21,6 +22,7 @@ const  MAX_ATTEMPTS_MULTI_THREADED: i64 = 1_000_000_000; // Higher limit for par
 /// * `progress_reporting_interval`: The interval for every
 ///                                  progress report callback
 ///                                  (in attempts).
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PoWConfig {
     pub max_attempts:                i64,
     pub progress_reporting_interval: u64,
@@ -28,7 +30,7 @@ pub struct PoWConfig {
 
 impl Default for PoWConfig {
     fn default() -> Self {
-        Self { // Single threaded default.
+        Self {
             max_attempts:                MAX_ATTEMPTS_SINGLE_THREADED,
             progress_reporting_interval: PROGRESS_REPORTING_INTERVAL,
         }
